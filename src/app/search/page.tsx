@@ -4,25 +4,33 @@ import { useState } from 'react'
 import { Header } from '@/components/ui/Header'
 import { ProductCard } from '@/components/ui/ProductCard'
 import { products } from '@/data/mockData'
+import { allDevices } from '@/data/deviceData'
 import { Search as SearchIcon, X } from 'lucide-react'
 import { motion } from 'framer-motion'
+
+// Combine mockData products with our new comprehensive device catalog
+const combinedProducts = [
+  ...allDevices,
+  ...products.filter(p => !allDevices.some(d => d.id === p.id))
+]
 
 export default function SearchPage() {
   const [query, setQuery] = useState('')
   
   const searchResults = query.trim() === '' 
     ? [] 
-    : products.filter(p => 
+    : combinedProducts.filter(p => 
         p.name.toLowerCase().includes(query.toLowerCase()) || 
         p.category.toLowerCase().includes(query.toLowerCase()) ||
         p.model?.toLowerCase().includes(query.toLowerCase()) ||
-        p.compatibility?.some(c => c.toLowerCase().includes(query.toLowerCase()))
+        p.compatibility?.some(c => c.toLowerCase().includes(query.toLowerCase())) ||
+        Object.values(p.specifications).some(val => val.toLowerCase().includes(query.toLowerCase()))
       )
 
   const suggestions = [
-    'iPhone 15 Pro',
-    'MacBook Pro',
-    'AirPods Pro',
+    'iPhone 17 Pro Max',
+    'Mac Studio',
+    'iPad Pro 13-inch',
     'Display Assembly',
     'Replacement Battery',
     'MagSafe Charger'

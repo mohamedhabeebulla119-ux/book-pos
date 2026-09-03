@@ -3,15 +3,24 @@
 import { use, useState } from 'react'
 import { Header } from '@/components/ui/Header'
 import { products } from '@/data/mockData'
+import { allDevices } from '@/data/deviceData'
+import { iphoneModels } from '@/data/iphoneModels'
 import { Button } from '@/components/ui/Button'
 import { useCart } from '@/context/CartContext'
 import { motion } from 'framer-motion'
-import { ArrowLeft, ChevronRight, Check, Star } from 'lucide-react'
+import { ArrowLeft, ChevronRight, Check, Star, Wrench } from 'lucide-react'
 import Link from 'next/link'
+
+// Combine mockData products with our new comprehensive device catalog
+// Filter out duplicates by ID, giving precedence to allDevices
+const combinedProducts = [
+  ...allDevices,
+  ...products.filter(p => !allDevices.some(d => d.id === p.id))
+]
 
 export default function ProductDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
-  const product = products.find(p => p.id === resolvedParams.id)
+  const product = combinedProducts.find(p => p.id === resolvedParams.id)
   const { addToCart } = useCart()
 
   const [selectedVariant, setSelectedVariant] = useState(product?.variants?.[0])
@@ -33,6 +42,9 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
   }
 
   const currentPrice = selectedVariant?.price || product.price
+  
+  // Check if there are repair parts for this device (currently iPhones)
+  const repairParts = iphoneModels.find(m => m.id === product.id)
 
   return (
     <div className="flex flex-col min-h-screen pb-24">
@@ -45,7 +57,9 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
             <ArrowLeft size={16} className="mr-1" /> Back
           </Link>
           <span className="mx-2">/</span>
-          <span className="truncate">{product.category}</span>
+          <Link href={`/categories/${product.category.toLowerCase()}`} className="hover:text-primary">
+            {product.category}
+          </Link>
         </div>
 
         {/* Image Gallery */}
@@ -78,7 +92,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
         {/* Product Info */}
         <div className="px-4 py-6">
           <div className="mb-1 text-sm font-medium text-primary">
-            {product.isNew ? 'New' : product.subcategory}
+            {product.isNew || product.status === 'NEW' ? 'New' : product.subcategory}
           </div>
           <h1 className="text-3xl font-bold tracking-tight mb-2">{product.name}</h1>
           
@@ -144,6 +158,35 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+          
+          {/* Repair Parts Connection */}
+          {repairParts && (
+            <div className="mb-8 bg-orange-50 dark:bg-orange-950/20 rounded-2xl p-5 border border-orange-100 dark:border-orange-900/30">
+              <div className="flex items-center mb-3">
+                <Wrench size={18} className="text-orange-600 dark:text-orange-400 mr-2" />
+                <h3 className="text-sm font-bold text-orange-800 dark:text-orange-300 uppercase tracking-wide">
+                  Compatible Repair Parts
+                </h3>
+              </div>
+              <p className="text-sm text-orange-900/80 dark:text-orange-200/80 mb-4">
+                Genuine Apple replacement parts are available for {product.name}.
+              </p>
+              <div className="flex flex-col gap-3">
+                <Link href={`/categories/replacement-parts/displays/${repairParts.id}`}>
+                  <Button variant="outline" className="w-full justify-between bg-background">
+                    <span>OLED Display Assembly</span>
+                    <ChevronRight size={16} className="text-muted-foreground" />
+                  </Button>
+                </Link>
+                <Link href={`/categories/replacement-parts/batteries/${repairParts.id}`}>
+                  <Button variant="outline" className="w-full justify-between bg-background">
+                    <span>Replacement Battery Kit</span>
+                    <ChevronRight size={16} className="text-muted-foreground" />
+                  </Button>
+                </Link>
+              </div>
             </div>
           )}
 

@@ -25,14 +25,23 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
       transition={{ duration: 0.3 }}
       className={`group relative flex flex-col bg-card rounded-2xl overflow-hidden border border-border/50 hover:shadow-lg transition-all ${featured ? 'w-72 min-w-72 snap-center' : 'w-full'}`}
     >
-      <Link href={`/product/${product.id}`} className="flex flex-col flex-1 p-4">
+      <Link 
+        href={
+          product.id === 'part-iphone-15-pro-display' 
+            ? '/categories/replacement-parts/displays' 
+            : product.id === 'part-iphone-15-pro-battery'
+            ? '/categories/replacement-parts/batteries'
+            : `/product/${product.id}`
+        } 
+        className="flex flex-col flex-1 p-3 sm:p-4"
+      >
         {product.isNew && (
-          <span className="absolute top-4 left-4 text-[10px] font-semibold tracking-wider text-orange-500 uppercase z-10">
+          <span className="absolute top-3 left-3 sm:top-4 sm:left-4 text-[10px] font-semibold tracking-wider text-orange-500 uppercase z-10">
             New
           </span>
         )}
         
-        <div className="relative aspect-square w-full mb-4 bg-muted/30 rounded-xl overflow-hidden p-6 flex items-center justify-center">
+        <div className="relative aspect-square w-full mb-3 sm:mb-4 bg-muted/30 rounded-xl overflow-hidden p-4 sm:p-6 flex items-center justify-center">
           {!imgError ? (
             <img 
               src={product.images[0]} 
@@ -49,22 +58,22 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
         
         <div className="flex flex-col flex-1">
           {product.category === 'Replacement Parts' && (
-            <span className="text-xs text-muted-foreground font-medium mb-1 line-clamp-1">
+            <span className="text-[10px] sm:text-xs text-muted-foreground font-medium mb-1 line-clamp-1">
               For {product.compatibility?.[0]}
             </span>
           )}
-          <h3 className="font-semibold text-foreground text-sm sm:text-base leading-tight mb-2 line-clamp-2">
+          <h3 className="font-semibold text-foreground text-sm leading-tight mb-1 sm:mb-2 line-clamp-2">
             {product.name}
           </h3>
           <div className="mt-auto">
-            <span className="text-sm font-medium">
+            <span className="text-xs sm:text-sm font-medium">
               ${product.price}
             </span>
           </div>
         </div>
       </Link>
       
-      <div className="p-4 pt-0">
+      <div className="p-3 pt-0 sm:p-4 sm:pt-0">
         <Button 
           variant="secondary" 
           fullWidth 
@@ -72,8 +81,16 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
           onClick={(e) => {
             e.preventDefault()
             e.stopPropagation()
-            // If it has variants, we ideally redirect to PDP. 
-            // For now, if no variants or simple add, we just add the product.
+            
+            if (product.id === 'part-iphone-15-pro-display') {
+              window.location.href = '/categories/replacement-parts/displays'
+              return
+            }
+            if (product.id === 'part-iphone-15-pro-battery') {
+              window.location.href = '/categories/replacement-parts/batteries'
+              return
+            }
+            
             if (product.variants && product.variants.length > 0) {
               window.location.href = `/product/${product.id}`
             } else {
@@ -81,7 +98,9 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
             }
           }}
         >
-          {product.variants ? 'View Options' : 'Add to Cart'}
+          {product.id === 'part-iphone-15-pro-display' || product.id === 'part-iphone-15-pro-battery' 
+            ? 'View Models' 
+            : (product.variants ? 'View Options' : 'Add to Cart')}
         </Button>
       </div>
     </motion.div>

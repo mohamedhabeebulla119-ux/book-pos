@@ -4,18 +4,24 @@ import { Header } from '@/components/ui/Header'
 import { CategoryCard } from '@/components/ui/CategoryCard'
 import { ProductCard } from '@/components/ui/ProductCard'
 import { products } from '@/data/mockData'
+import { allDevices } from '@/data/deviceData'
 import { Button } from '@/components/ui/Button'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 
+const combinedProducts = [
+  ...allDevices,
+  ...products.filter(p => !allDevices.some(d => d.id === p.id))
+]
+
 export default function Home() {
-  const featuredProducts = products.filter(p => p.featured)
+  const featuredProducts = combinedProducts.filter(p => p.featured)
 
   const categories = [
-    { title: 'iPhone', subtitle: 'Pro & Standard', image: 'https://images.unsplash.com/photo-1512054502232-10a0a035d672?auto=format&fit=crop&q=80&w=800', href: '/categories/iphone', color: 'bg-zinc-800' },
-    { title: 'Mac', subtitle: 'Laptops & Desktops', image: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&q=80&w=800', href: '/categories/mac', color: 'bg-neutral-800' },
-    { title: 'Replacement Parts', subtitle: 'Displays & Batteries', image: 'https://images.unsplash.com/photo-1581092160562-40aa08e78837?auto=format&fit=crop&q=80&w=800', href: '/categories/parts', color: 'bg-blue-900' },
-    { title: 'Accessories', subtitle: 'Cases & Chargers', image: 'https://images.unsplash.com/photo-1616428784116-2a62886ed2d0?auto=format&fit=crop&q=80&w=800', href: '/categories/accessories', color: 'bg-indigo-900' }
+    { title: 'iPhone', subtitle: 'Pro & Standard', image: '/images/categories/iphone.jpg', href: '/categories/iphone', color: 'bg-zinc-800' },
+    { title: 'Mac', subtitle: 'Laptops & Desktops', image: '/images/categories/mac.jpg', href: '/categories/mac', color: 'bg-neutral-800' },
+    { title: 'Replacement Parts', subtitle: 'Displays & Batteries', image: '/images/categories/replacement-parts.jpg', href: '/categories/parts', color: 'bg-blue-900' },
+    { title: 'Accessories', subtitle: 'Cases & Chargers', image: '/images/categories/accessories.jpg', href: '/categories/accessories', color: 'bg-indigo-900' }
   ]
 
   return (

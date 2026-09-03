@@ -115,7 +115,7 @@ export const products: Product[] = [
     model: 'iPhone 15 Pro',
     price: 329,
     images: [
-      'https://images.unsplash.com/photo-1593108625902-8a9d12a203f1?auto=format&fit=crop&q=80&w=800'
+      '/images/products/iphone/iphone-15-pro.jpg'
     ],
     description: 'Genuine Apple OLED Display Assembly replacement for iPhone 15 Pro. Includes display, digitizer, and front glass.',
     specifications: {
@@ -139,7 +139,7 @@ export const products: Product[] = [
     model: 'iPhone 15 Pro',
     price: 99,
     images: [
-      'https://images.unsplash.com/photo-1588636979603-9975765664db?auto=format&fit=crop&q=80&w=800'
+      '/images/categories/replacement-parts.jpg'
     ],
     description: 'Genuine replacement battery for iPhone 15 Pro. Restores factory battery life and performance.',
     specifications: {
@@ -160,7 +160,7 @@ export const products: Product[] = [
     subcategory: 'MagSafe',
     price: 39,
     images: [
-      'https://images.unsplash.com/photo-1616428784116-2a62886ed2d0?auto=format&fit=crop&q=80&w=800'
+      '/images/categories/accessories.jpg'
     ],
     description: 'The MagSafe Charger makes wireless charging a snap. The perfectly aligned magnets attach to your iPhone.',
     specifications: {
@@ -182,7 +182,7 @@ export const products: Product[] = [
     model: 'MacBook Pro 14"',
     price: 799,
     images: [
-      'https://images.unsplash.com/photo-1541807084-5c52b6b3adef?auto=format&fit=crop&q=80&w=800'
+      '/images/categories/mac.jpg'
     ],
     description: 'Complete display assembly for the 14-inch MacBook Pro. Includes the aluminum housing, LCD panel, and camera module.',
     specifications: {
@@ -195,5 +195,66 @@ export const products: Product[] = [
     rating: 4.9,
     reviewsCount: 15,
     warranty: '90 Days Part Warranty'
+  },
+  {
+    id: 'acc-iphone-15-case',
+    name: 'iPhone 15 Pro Silicone Case with MagSafe',
+    category: 'Accessories',
+    subcategory: 'iPhone Cases',
+    price: 49,
+    images: [
+      '/images/categories/accessories.jpg'
+    ],
+    description: 'Designed by Apple to complement iPhone 15 Pro, the Silicone Case with MagSafe is a delightful way to protect your iPhone.',
+    specifications: {
+      'Material': 'Silicone',
+      'Features': 'MagSafe compatible, soft microfiber lining'
+    },
+    compatibility: ['iPhone 15 Pro'],
+    stock: 120,
+    rating: 4.8,
+    reviewsCount: 345,
+    warranty: '1 Year Apple Limited Warranty'
+  },
+  {
+    id: 'acc-usbc-cable-60w',
+    name: '60W USB-C Charge Cable (1m)',
+    category: 'Accessories',
+    subcategory: 'USB-C Cables',
+    price: 19,
+    images: [
+      '/images/categories/accessories.jpg'
+    ],
+    description: 'This 1-meter charge cable is made with a woven design — with USB-C connectors on both ends.',
+    specifications: {
+      'Connector': 'USB-C to USB-C',
+      'Length': '1 meter',
+      'Power': 'Up to 60W'
+    },
+    compatibility: ['Mac', 'iPad', 'iPhone 15 Series'],
+    stock: 500,
+    rating: 4.9,
+    reviewsCount: 1289,
+    warranty: '1 Year Apple Limited Warranty'
+  },
+  {
+    id: 'acc-power-adapter-20w',
+    name: '20W USB-C Power Adapter',
+    category: 'Accessories',
+    subcategory: 'Power Adapters',
+    price: 19,
+    images: [
+      '/images/categories/accessories.jpg'
+    ],
+    description: 'The Apple 20W USB‑C Power Adapter offers fast, efficient charging at home, in the office, or on the go.',
+    specifications: {
+      'Port': 'USB-C',
+      'Power': '20W Fast Charging'
+    },
+    compatibility: ['iPhone', 'iPad', 'Apple Watch', 'AirPods'],
+    stock: 450,
+    rating: 4.9,
+    reviewsCount: 3210,
+    warranty: '1 Year Apple Limited Warranty'
   }
 ]

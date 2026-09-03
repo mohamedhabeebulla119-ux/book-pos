@@ -6,16 +6,16 @@ import { motion } from 'framer-motion'
 
 export default function CategoriesPage() {
   const mainCategories = [
-    { title: 'iPhone', subtitle: 'Pro & Standard', image: 'https://images.unsplash.com/photo-1512054502232-10a0a035d672?auto=format&fit=crop&q=80&w=800', href: '/categories/iphone' },
-    { title: 'iPad', subtitle: 'Air, Pro & mini', image: 'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?auto=format&fit=crop&q=80&w=800', href: '/categories/ipad' },
-    { title: 'Mac', subtitle: 'Laptops & Desktops', image: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&q=80&w=800', href: '/categories/mac' },
-    { title: 'Apple Watch', subtitle: 'Ultra, Series & SE', image: 'https://images.unsplash.com/photo-1579586337278-3befd40fd17a?auto=format&fit=crop&q=80&w=800', href: '/categories/watch' },
-    { title: 'AirPods', subtitle: 'Pro, Max & Earbuds', image: 'https://images.unsplash.com/photo-1588423771073-b8903fbb85b5?auto=format&fit=crop&q=80&w=800', href: '/categories/airpods', fullWidth: true },
+    { title: 'iPhone', subtitle: 'Pro & Standard', image: '/images/categories/iphone.jpg', href: '/categories/iphone' },
+    { title: 'iPad', subtitle: 'Air, Pro & mini', image: '/images/categories/ipad.jpg', href: '/categories/ipad' },
+    { title: 'Mac', subtitle: 'Laptops & Desktops', image: '/images/categories/mac.jpg', href: '/categories/mac' },
+    { title: 'Apple Watch', subtitle: 'Ultra, Series & SE', image: '/images/categories/apple-watch.jpg', href: '/categories/watch' },
+    { title: 'AirPods', subtitle: 'Pro, Max & Earbuds', image: '/images/categories/airpods.jpg', href: '/categories/airpods', fullWidth: true },
   ]
 
   const serviceCategories = [
-    { title: 'Replacement Parts', subtitle: 'Displays, Batteries & More', image: 'https://images.unsplash.com/photo-1581092160562-40aa08e78837?auto=format&fit=crop&q=80&w=400', href: '/categories/parts' },
-    { title: 'Accessories', subtitle: 'Cases, Chargers & Cables', image: 'https://images.unsplash.com/photo-1616428784116-2a62886ed2d0?auto=format&fit=crop&q=80&w=400', href: '/categories/accessories' }
+    { title: 'Replacement Parts', subtitle: 'Displays, Batteries & More', image: '/images/categories/replacement-parts.jpg', href: '/categories/parts' },
+    { title: 'Accessories', subtitle: 'Cases, Chargers & Cables', image: '/images/categories/accessories.jpg', href: '/categories/accessories' }
   ]
 
   const containerVariants = {
@@ -32,7 +32,7 @@ export default function CategoriesPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen pb-6">
+    <div className="flex flex-col min-h-screen">
       <Header />
       
       <main className="w-full">
@@ -41,7 +41,7 @@ export default function CategoriesPage() {
           
           <motion.div 
             variants={containerVariants}
-            initial="hidden"
+            initial="show"
             animate="show"
             className="space-y-12"
           >

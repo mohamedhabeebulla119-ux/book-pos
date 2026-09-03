@@ -1,9 +1,9 @@
 "use client"
 
-import React, { useState } from 'react'
+import React from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { motion } from 'framer-motion'
-import { Box } from 'lucide-react'
 
 interface CategoryCardProps {
   title: string
@@ -22,11 +22,13 @@ export function CategoryCard({ title, subtitle, image, href, color = "bg-[#11111
         whileTap={{ scale: 0.96 }}
         className={`relative overflow-hidden rounded-[24px] ${fullWidth ? 'aspect-[2/1] sm:aspect-[2.2/1]' : 'aspect-[0.95/1]'} flex flex-col group ${color}`}
       >
-        <div className="absolute inset-0 w-full h-full">
-          <img 
+        <div className="absolute inset-0 w-full h-full overflow-hidden">
+          <Image 
             src={image} 
             alt={title}
-            className="w-full h-full object-cover object-center transition-transform duration-[800ms] ease-out group-hover:scale-105"
+            fill
+            sizes={fullWidth ? "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" : "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"}
+            className="object-cover object-center transition-transform duration-[800ms] ease-out group-hover:scale-105"
           />
         </div>
         

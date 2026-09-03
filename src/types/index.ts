@@ -49,6 +49,7 @@ export interface Product {
   warranty: string
   featured?: boolean
   isNew?: boolean
+  status?: 'NEW' | 'CURRENT' | 'OLDER'
   variants?: ProductVariant[]
 }
 

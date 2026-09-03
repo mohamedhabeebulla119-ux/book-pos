@@ -11,11 +11,13 @@ export function Header() {
     <header className="sticky top-0 z-40 bg-background/90 backdrop-blur-xl border-b border-border shadow-sm">
       <div className="flex items-center justify-between h-16 px-5 max-w-md mx-auto">
         <Link href="/" className="flex items-center">
-          <img 
-            src="/logo.jpg" 
-            alt="Apple EXPERT Logo" 
-            className="h-10 w-auto object-contain"
-          />
+          <div className="bg-white rounded-2xl px-3 py-1.5 shadow-sm flex items-center justify-center transition-transform hover:scale-[1.02]">
+            <img 
+              src="/logo.jpg" 
+              alt="Apple EXPERT Logo" 
+              className="h-9 sm:h-11 w-auto object-contain mix-blend-normal"
+            />
+          </div>
         </Link>
         
         <div className="flex items-center space-x-5">

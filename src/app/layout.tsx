@@ -29,7 +29,7 @@ export default function RootLayout({
       <body className="antialiased selection:bg-primary/30">
         <ThemeProvider>
           <CartProvider>
-            <div className="flex flex-col min-h-screen bg-background w-full max-w-[480px] mx-auto sm:border-x sm:border-border sm:shadow-2xl sm:my-0 pb-[calc(5rem+env(safe-area-inset-bottom))] relative overflow-hidden">
+            <div className="flex flex-col min-h-screen bg-background w-full max-w-[480px] mx-auto sm:border-x sm:border-border sm:shadow-2xl sm:my-0 pb-[calc(72px+env(safe-area-inset-bottom)+1.5rem)] relative overflow-hidden">
               <main className="flex-1 w-full h-full overflow-x-hidden">
                 {children}
               </main>
