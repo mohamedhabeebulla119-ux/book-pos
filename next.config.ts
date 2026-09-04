@@ -20,10 +20,6 @@ const getLocalIPs = () => {
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: getLocalIPs(),
-  devIndicators: {
-    buildActivity: false,
-    appIsrStatus: false,
-  },
 };
 
 export default nextConfig;

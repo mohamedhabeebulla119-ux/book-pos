@@ -32,7 +32,7 @@ export default function BatterySelectionPage() {
         </div>
 
         <div className="px-5 sm:px-6 py-4">
-          <h1 className="text-3xl font-bold tracking-tight">iPhone Replacement Batteries</h1>
+          <h1 className="text-3xl font-bold tracking-tight">iPhone Battery Models</h1>
           <p className="text-muted-foreground mt-1 mb-6">Select your iPhone model</p>
           
           <motion.div 
@@ -48,14 +48,14 @@ export default function BatterySelectionPage() {
                     <div className="aspect-[4/5] bg-muted/20 relative p-3 sm:p-4 flex items-center justify-center">
                       <img 
                         src={model.image} 
-                        alt={model.model} 
+                        alt={model.name} 
                         className="w-full h-full object-contain mix-blend-multiply dark:mix-blend-normal transition-transform duration-500 group-hover:scale-105"
                       />
                     </div>
                     <div className="p-3 sm:p-4 flex flex-col flex-1">
-                      <h3 className="font-semibold text-sm line-clamp-1">{model.model}</h3>
+                      <h3 className="font-semibold text-sm line-clamp-1">{model.name}</h3>
                       <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 line-clamp-1">
-                        {model.battery.capacity}
+                        {model.battery.specifications["Capacity"]}
                       </p>
                       <div className="mt-auto pt-2 flex items-center justify-between">
                         <span className="font-semibold text-sm">${model.battery.price}</span>

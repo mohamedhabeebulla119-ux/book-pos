@@ -50,6 +50,13 @@ function DeviceCard({ product }: { product: Product }) {
   const { addToCart } = useCart()
   const isNewOrCurrent = product.status === 'NEW' || product.status === 'CURRENT'
 
+  let productHref = `/product/${product.id}`;
+  if (product.id === 'part-iphone-15-pro-display') {
+    productHref = '/categories/replacement-parts/displays';
+  } else if (product.id === 'part-iphone-15-pro-battery') {
+    productHref = '/categories/replacement-parts/batteries';
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -58,7 +65,7 @@ function DeviceCard({ product }: { product: Product }) {
       transition={{ duration: 0.25 }}
       className="group flex flex-col bg-card rounded-2xl overflow-hidden border border-border/50 hover:shadow-lg transition-all"
     >
-      <Link href={`/product/${product.id}`} className="flex flex-col flex-1 p-3 sm:p-4">
+      <Link href={productHref} className="flex flex-col flex-1 p-3 sm:p-4">
         {/* Status badge */}
         {product.status === 'NEW' && (
           <span className="absolute-but-relative mb-1 self-start text-[10px] font-bold tracking-wider text-emerald-500 uppercase">
@@ -109,9 +116,9 @@ function DeviceCard({ product }: { product: Product }) {
 
       {/* CTA Button */}
       <div className="p-3 pt-0 sm:p-4 sm:pt-0">
-        <Link href={`/product/${product.id}`}>
+        <Link href={productHref}>
           <Button variant="secondary" fullWidth size="sm">
-            {product.variants && product.variants.length > 0 ? 'View Options' : 'View Details'}
+            {productHref.includes('replacement-parts') ? 'Select Model' : (product.variants && product.variants.length > 0 ? 'View Options' : 'View Details')}
           </Button>
         </Link>
       </div>
