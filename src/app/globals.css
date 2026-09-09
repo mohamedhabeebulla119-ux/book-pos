@@ -22,7 +22,7 @@
 }
 
 :root {
-  --background: #fbfbfd;
+  --background: #faf9fd;
   --foreground: #1d1d1f;
   --card: #ffffff;
   --card-foreground: #1d1d1f;
@@ -35,15 +35,15 @@
 }
 
 .dark {
-  --background: #000000;
+  --background: #0a0a12;
   --foreground: #f5f5f7;
-  --card: #1c1c1e;
+  --card: #18171f;
   --card-foreground: #f5f5f7;
-  --border: #38383a;
+  --border: #322f3d;
   --primary: #2997ff;
   --primary-foreground: #ffffff;
-  --muted: #1c1c1e;
-  --muted-foreground: #86868b;
+  --muted: #1c1a24;
+  --muted-foreground: #9a97a8;
 }
 
 body {
@@ -52,6 +52,17 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.shadow-card {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px -12px rgba(0, 0, 0, 0.10);
+}
+.dark .shadow-card {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+}
+
+.bg-gradient-cta {
+  background-image: linear-gradient(135deg, var(--primary) 0%, #7c5cff 100%);
 }
 
 /* Hide scrollbar for clean UI but allow scrolling */

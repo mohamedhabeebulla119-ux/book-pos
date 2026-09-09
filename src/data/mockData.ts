@@ -7,7 +7,7 @@ export const products: Product[] = [
     category: 'iPhone',
     subcategory: 'Devices',
     model: 'iPhone 17 Pro Max',
-    price: 1199,
+    price: 359000,
     images: [
       'https://images.unsplash.com/photo-1695048133142-1a20484d2569?auto=format&fit=crop&q=80&w=800',
       'https://images.unsplash.com/photo-1695048132711-2856230f2520?auto=format&fit=crop&q=80&w=800'
@@ -26,9 +26,9 @@ export const products: Product[] = [
     featured: true,
     isNew: true,
     variants: [
-      { id: 'v1', name: 'Natural Titanium 256GB', price: 1199, color: 'Natural Titanium', colorCode: '#B8B3A9', storage: '256GB' },
-      { id: 'v2', name: 'Black Titanium 256GB', price: 1199, color: 'Black Titanium', colorCode: '#4B4C4F', storage: '256GB' },
-      { id: 'v3', name: 'Natural Titanium 512GB', price: 1399, color: 'Natural Titanium', colorCode: '#B8B3A9', storage: '512GB' }
+      { id: 'v1', name: 'Natural Titanium 256GB', price: 359000, color: 'Natural Titanium', colorCode: '#B8B3A9', storage: '256GB' },
+      { id: 'v2', name: 'Black Titanium 256GB', price: 359000, color: 'Black Titanium', colorCode: '#4B4C4F', storage: '256GB' },
+      { id: 'v3', name: 'Natural Titanium 512GB', price: 419000, color: 'Natural Titanium', colorCode: '#B8B3A9', storage: '512GB' }
     ]
   },
   {
@@ -37,7 +37,7 @@ export const products: Product[] = [
     category: 'Mac',
     subcategory: 'Devices',
     model: 'MacBook Pro',
-    price: 2499,
+    price: 749000,
     images: [
       'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&q=80&w=800',
       'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&q=80&w=800'
@@ -55,8 +55,8 @@ export const products: Product[] = [
     warranty: '1 Year Apple Limited Warranty',
     featured: true,
     variants: [
-      { id: 'v4', name: 'Space Black M3 Pro 18GB', price: 2499, color: 'Space Black', colorCode: '#2E2E2E', storage: '512GB' },
-      { id: 'v5', name: 'Silver M3 Pro 18GB', price: 2499, color: 'Silver', colorCode: '#E3E4E5', storage: '512GB' }
+      { id: 'v4', name: 'Space Black M3 Pro 18GB', price: 749000, color: 'Space Black', colorCode: '#2E2E2E', storage: '512GB' },
+      { id: 'v5', name: 'Silver M3 Pro 18GB', price: 749000, color: 'Silver', colorCode: '#E3E4E5', storage: '512GB' }
     ]
   },
   {
@@ -65,7 +65,7 @@ export const products: Product[] = [
     category: 'AirPods',
     subcategory: 'Devices',
     model: 'AirPods Pro',
-    price: 249,
+    price: 74000,
     images: [
       'https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?auto=format&fit=crop&q=80&w=800',
       'https://images.unsplash.com/photo-1608231387042-66d1773070a5?auto=format&fit=crop&q=80&w=800'
@@ -89,7 +89,7 @@ export const products: Product[] = [
     category: 'Apple Watch',
     subcategory: 'Devices',
     model: 'Apple Watch Ultra',
-    price: 799,
+    price: 239000,
     images: [
       'https://images.unsplash.com/photo-1664478546384-d57ffe74a78c?auto=format&fit=crop&q=80&w=800',
       'https://images.unsplash.com/photo-1696446700622-48ec59a7ee1d?auto=format&fit=crop&q=80&w=800'
@@ -113,7 +113,7 @@ export const products: Product[] = [
     category: 'Replacement Parts',
     subcategory: 'Displays',
     model: 'iPhone 15 Pro',
-    price: 329,
+    price: 98000,
     images: [
       '/images/products/iphone/iphone-15-pro.jpg'
     ],
@@ -137,7 +137,7 @@ export const products: Product[] = [
     category: 'Replacement Parts',
     subcategory: 'Batteries',
     model: 'iPhone 15 Pro',
-    price: 99,
+    price: 29000,
     images: [
       '/images/categories/replacement-parts.jpg'
     ],
@@ -158,7 +158,7 @@ export const products: Product[] = [
     name: 'MagSafe Charger',
     category: 'Accessories',
     subcategory: 'MagSafe',
-    price: 39,
+    price: 11000,
     images: [
       '/images/categories/accessories.jpg'
     ],
@@ -180,7 +180,7 @@ export const products: Product[] = [
     category: 'Replacement Parts',
     subcategory: 'Displays',
     model: 'MacBook Pro 14"',
-    price: 799,
+    price: 239000,
     images: [
       '/images/categories/mac.jpg'
     ],
@@ -201,7 +201,7 @@ export const products: Product[] = [
     name: 'iPhone 15 Pro Silicone Case with MagSafe',
     category: 'Accessories',
     subcategory: 'iPhone Cases',
-    price: 49,
+    price: 14000,
     images: [
       '/images/categories/accessories.jpg'
     ],
@@ -221,7 +221,7 @@ export const products: Product[] = [
     name: '60W USB-C Charge Cable (1m)',
     category: 'Accessories',
     subcategory: 'USB-C Cables',
-    price: 19,
+    price: 5000,
     images: [
       '/images/categories/accessories.jpg'
     ],
@@ -242,7 +242,7 @@ export const products: Product[] = [
     name: '20W USB-C Power Adapter',
     category: 'Accessories',
     subcategory: 'Power Adapters',
-    price: 19,
+    price: 5000,
     images: [
       '/images/categories/accessories.jpg'
     ],

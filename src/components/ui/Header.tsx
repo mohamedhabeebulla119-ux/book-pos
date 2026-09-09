@@ -20,14 +20,22 @@ export function Header() {
           </div>
         </Link>
         
-        <div className="flex items-center space-x-5">
-          <Link href="/search" className="text-foreground/90 hover:text-primary transition-colors">
-            <Search size={24} strokeWidth={2} />
+        <div className="flex items-center space-x-2">
+          <Link
+            href="/search"
+            aria-label="Search"
+            className="flex items-center justify-center w-11 h-11 rounded-full text-foreground/90 hover:text-primary hover:bg-muted active:scale-90 transition-all"
+          >
+            <Search size={22} strokeWidth={2} />
           </Link>
-          <Link href="/cart" className="relative text-foreground/90 hover:text-primary transition-colors">
-            <ShoppingBag size={24} strokeWidth={2} />
+          <Link
+            href="/cart"
+            aria-label="Cart"
+            className="relative flex items-center justify-center w-11 h-11 rounded-full text-foreground/90 hover:text-primary hover:bg-muted active:scale-90 transition-all"
+          >
+            <ShoppingBag size={22} strokeWidth={2} />
             {cartCount > 0 && (
-              <span className="absolute -top-1.5 -right-2 bg-primary text-primary-foreground text-[10px] font-bold h-4 min-w-4 px-1 rounded-full flex items-center justify-center border border-background">
+              <span className="absolute top-1 right-1.5 bg-primary text-primary-foreground text-[10px] font-bold h-4 min-w-4 px-1 rounded-full flex items-center justify-center border border-background">
                 {cartCount > 99 ? '99+' : cartCount}
               </span>
             )}

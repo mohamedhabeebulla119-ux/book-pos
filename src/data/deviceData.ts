@@ -1,4 +1,15 @@
-import { Product } from '@/types'
+import { Product, WarrantyInfo } from '@/types'
+
+// Apple's standard coverage for new iPhone/iPad/Mac devices sold through
+// Apple Expert. Kept as one shared reference so it stays consistent across
+// the catalog; a future admin portal can override it per-product by
+// assigning a different WarrantyInfo object to that product's `warrantyInfo`.
+const STANDARD_APPLE_WARRANTY: WarrantyInfo = {
+  status: 'active',
+  duration: '1 Year',
+  months: 12,
+  coverage: 'Hardware defects under normal use.',
+}
 
 // ============================================================
 // iPHONE CATALOG
@@ -11,7 +22,7 @@ export const iphoneProducts: Product[] = [
     category: 'iPhone',
     subcategory: 'Devices',
     model: 'iPhone 17 Pro Max',
-    price: 1199,
+    price: 359000,
     status: 'NEW',
     featured: true,
     isNew: true,
@@ -28,11 +39,12 @@ export const iphoneProducts: Product[] = [
     rating: 4.9,
     reviewsCount: 1284,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
     variants: [
-      { id: 'v1', name: 'Natural Titanium 256GB', price: 1199, color: 'Natural Titanium', colorCode: '#B8B3A9', storage: '256GB' },
-      { id: 'v2', name: 'Black Titanium 256GB', price: 1199, color: 'Black Titanium', colorCode: '#4B4C4F', storage: '256GB' },
-      { id: 'v3', name: 'Natural Titanium 512GB', price: 1399, color: 'Natural Titanium', colorCode: '#B8B3A9', storage: '512GB' },
-      { id: 'v4', name: 'Natural Titanium 1TB', price: 1599, color: 'Natural Titanium', colorCode: '#B8B3A9', storage: '1TB' },
+      { id: 'v1', name: 'Natural Titanium 256GB', price: 359000, color: 'Natural Titanium', colorCode: '#B8B3A9', storage: '256GB' },
+      { id: 'v2', name: 'Black Titanium 256GB', price: 359000, color: 'Black Titanium', colorCode: '#4B4C4F', storage: '256GB' },
+      { id: 'v3', name: 'Natural Titanium 512GB', price: 419000, color: 'Natural Titanium', colorCode: '#B8B3A9', storage: '512GB' },
+      { id: 'v4', name: 'Natural Titanium 1TB', price: 479000, color: 'Natural Titanium', colorCode: '#B8B3A9', storage: '1TB' },
     ]
   },
   {
@@ -41,7 +53,7 @@ export const iphoneProducts: Product[] = [
     category: 'iPhone',
     subcategory: 'Devices',
     model: 'iPhone 17 Pro',
-    price: 999,
+    price: 299000,
     status: 'NEW',
     featured: true,
     isNew: true,
@@ -58,10 +70,11 @@ export const iphoneProducts: Product[] = [
     rating: 4.9,
     reviewsCount: 876,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
     variants: [
-      { id: 'v1', name: 'Natural Titanium 256GB', price: 999, color: 'Natural Titanium', colorCode: '#B8B3A9', storage: '256GB' },
-      { id: 'v2', name: 'Desert Titanium 256GB', price: 999, color: 'Desert Titanium', colorCode: '#C9A882', storage: '256GB' },
-      { id: 'v3', name: 'Natural Titanium 512GB', price: 1199, color: 'Natural Titanium', colorCode: '#B8B3A9', storage: '512GB' },
+      { id: 'v1', name: 'Natural Titanium 256GB', price: 299000, color: 'Natural Titanium', colorCode: '#B8B3A9', storage: '256GB' },
+      { id: 'v2', name: 'Desert Titanium 256GB', price: 299000, color: 'Desert Titanium', colorCode: '#C9A882', storage: '256GB' },
+      { id: 'v3', name: 'Natural Titanium 512GB', price: 359000, color: 'Natural Titanium', colorCode: '#B8B3A9', storage: '512GB' },
     ]
   },
   {
@@ -70,7 +83,7 @@ export const iphoneProducts: Product[] = [
     category: 'iPhone',
     subcategory: 'Devices',
     model: 'iPhone Air',
-    price: 899,
+    price: 269000,
     status: 'NEW',
     featured: true,
     isNew: true,
@@ -87,10 +100,11 @@ export const iphoneProducts: Product[] = [
     rating: 4.8,
     reviewsCount: 412,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
     variants: [
-      { id: 'v1', name: 'Starlight 128GB', price: 899, color: 'Starlight', colorCode: '#F5F4EF', storage: '128GB' },
-      { id: 'v2', name: 'Midnight 128GB', price: 899, color: 'Midnight', colorCode: '#2C2C2E', storage: '128GB' },
-      { id: 'v3', name: 'Starlight 256GB', price: 999, color: 'Starlight', colorCode: '#F5F4EF', storage: '256GB' },
+      { id: 'v1', name: 'Starlight 128GB', price: 269000, color: 'Starlight', colorCode: '#F5F4EF', storage: '128GB' },
+      { id: 'v2', name: 'Midnight 128GB', price: 269000, color: 'Midnight', colorCode: '#2C2C2E', storage: '128GB' },
+      { id: 'v3', name: 'Starlight 256GB', price: 299000, color: 'Starlight', colorCode: '#F5F4EF', storage: '256GB' },
     ]
   },
   {
@@ -99,7 +113,7 @@ export const iphoneProducts: Product[] = [
     category: 'iPhone',
     subcategory: 'Devices',
     model: 'iPhone 17',
-    price: 799,
+    price: 239000,
     status: 'NEW',
     isNew: true,
     images: ['/images/products/iphone/iphone-17.jpg'],
@@ -114,11 +128,12 @@ export const iphoneProducts: Product[] = [
     rating: 4.8,
     reviewsCount: 521,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
     variants: [
-      { id: 'v1', name: 'Black 128GB', price: 799, color: 'Black', colorCode: '#1C1C1E', storage: '128GB' },
-      { id: 'v2', name: 'White 128GB', price: 799, color: 'White', colorCode: '#F5F5F7', storage: '128GB' },
-      { id: 'v3', name: 'Ultramarine 128GB', price: 799, color: 'Ultramarine', colorCode: '#4B6CB7', storage: '128GB' },
-      { id: 'v4', name: 'Black 256GB', price: 899, color: 'Black', colorCode: '#1C1C1E', storage: '256GB' },
+      { id: 'v1', name: 'Black 128GB', price: 239000, color: 'Black', colorCode: '#1C1C1E', storage: '128GB' },
+      { id: 'v2', name: 'White 128GB', price: 239000, color: 'White', colorCode: '#F5F5F7', storage: '128GB' },
+      { id: 'v3', name: 'Ultramarine 128GB', price: 239000, color: 'Ultramarine', colorCode: '#4B6CB7', storage: '128GB' },
+      { id: 'v4', name: 'Black 256GB', price: 269000, color: 'Black', colorCode: '#1C1C1E', storage: '256GB' },
     ]
   },
   {
@@ -127,7 +142,7 @@ export const iphoneProducts: Product[] = [
     category: 'iPhone',
     subcategory: 'Devices',
     model: 'iPhone 17e',
-    price: 599,
+    price: 179000,
     status: 'NEW',
     isNew: true,
     images: ['/images/products/iphone/iphone-17e.jpg'],
@@ -142,10 +157,11 @@ export const iphoneProducts: Product[] = [
     rating: 4.7,
     reviewsCount: 328,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
     variants: [
-      { id: 'v1', name: 'Black 128GB', price: 599, color: 'Black', colorCode: '#1C1C1E', storage: '128GB' },
-      { id: 'v2', name: 'Starlight 128GB', price: 599, color: 'Starlight', colorCode: '#F5F4EF', storage: '128GB' },
-      { id: 'v3', name: 'Black 256GB', price: 699, color: 'Black', colorCode: '#1C1C1E', storage: '256GB' },
+      { id: 'v1', name: 'Black 128GB', price: 179000, color: 'Black', colorCode: '#1C1C1E', storage: '128GB' },
+      { id: 'v2', name: 'Starlight 128GB', price: 179000, color: 'Starlight', colorCode: '#F5F4EF', storage: '128GB' },
+      { id: 'v3', name: 'Black 256GB', price: 209000, color: 'Black', colorCode: '#1C1C1E', storage: '256GB' },
     ]
   },
   // --- iPhone 16 Series (CURRENT) ---
@@ -155,7 +171,7 @@ export const iphoneProducts: Product[] = [
     category: 'iPhone',
     subcategory: 'Devices',
     model: 'iPhone 16 Pro Max',
-    price: 1199,
+    price: 359000,
     status: 'CURRENT',
     images: ['/images/products/iphone/iphone-16-pro-max.jpg'],
     description: 'The biggest Pro display. The most powerful chip. iPhone 16 Pro Max with A18 Pro and titanium design.',
@@ -169,10 +185,11 @@ export const iphoneProducts: Product[] = [
     rating: 4.9,
     reviewsCount: 2341,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
     variants: [
-      { id: 'v1', name: 'Black Titanium 256GB', price: 1199, color: 'Black Titanium', colorCode: '#4B4C4F', storage: '256GB' },
-      { id: 'v2', name: 'Desert Titanium 256GB', price: 1199, color: 'Desert Titanium', colorCode: '#C9A882', storage: '256GB' },
-      { id: 'v3', name: 'Black Titanium 512GB', price: 1399, color: 'Black Titanium', colorCode: '#4B4C4F', storage: '512GB' },
+      { id: 'v1', name: 'Black Titanium 256GB', price: 359000, color: 'Black Titanium', colorCode: '#4B4C4F', storage: '256GB' },
+      { id: 'v2', name: 'Desert Titanium 256GB', price: 359000, color: 'Desert Titanium', colorCode: '#C9A882', storage: '256GB' },
+      { id: 'v3', name: 'Black Titanium 512GB', price: 419000, color: 'Black Titanium', colorCode: '#4B4C4F', storage: '512GB' },
     ]
   },
   {
@@ -181,7 +198,7 @@ export const iphoneProducts: Product[] = [
     category: 'iPhone',
     subcategory: 'Devices',
     model: 'iPhone 16 Pro',
-    price: 999,
+    price: 299000,
     status: 'CURRENT',
     images: ['/images/products/iphone/iphone-16-pro.jpg'],
     description: 'iPhone 16 Pro. Titanium. A18 Pro chip. Camera Control. The most powerful iPhone Pro.',
@@ -195,9 +212,10 @@ export const iphoneProducts: Product[] = [
     rating: 4.8,
     reviewsCount: 1893,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
     variants: [
-      { id: 'v1', name: 'Black Titanium 128GB', price: 999, color: 'Black Titanium', colorCode: '#4B4C4F', storage: '128GB' },
-      { id: 'v2', name: 'White Titanium 128GB', price: 999, color: 'White Titanium', colorCode: '#E8E4DC', storage: '128GB' },
+      { id: 'v1', name: 'Black Titanium 128GB', price: 299000, color: 'Black Titanium', colorCode: '#4B4C4F', storage: '128GB' },
+      { id: 'v2', name: 'White Titanium 128GB', price: 299000, color: 'White Titanium', colorCode: '#E8E4DC', storage: '128GB' },
     ]
   },
   {
@@ -206,7 +224,7 @@ export const iphoneProducts: Product[] = [
     category: 'iPhone',
     subcategory: 'Devices',
     model: 'iPhone 16 Plus',
-    price: 899,
+    price: 269000,
     status: 'CURRENT',
     images: ['/images/products/iphone/iphone-16-plus.jpg'],
     description: 'Big screen, big battery. iPhone 16 Plus with a 6.7" display and up to 27 hours battery life.',
@@ -220,9 +238,10 @@ export const iphoneProducts: Product[] = [
     rating: 4.7,
     reviewsCount: 956,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
     variants: [
-      { id: 'v1', name: 'Black 128GB', price: 899, color: 'Black', colorCode: '#1C1C1E', storage: '128GB' },
-      { id: 'v2', name: 'Teal 128GB', price: 899, color: 'Teal', colorCode: '#5DA89F', storage: '128GB' },
+      { id: 'v1', name: 'Black 128GB', price: 269000, color: 'Black', colorCode: '#1C1C1E', storage: '128GB' },
+      { id: 'v2', name: 'Teal 128GB', price: 269000, color: 'Teal', colorCode: '#5DA89F', storage: '128GB' },
     ]
   },
   {
@@ -231,7 +250,7 @@ export const iphoneProducts: Product[] = [
     category: 'iPhone',
     subcategory: 'Devices',
     model: 'iPhone 16',
-    price: 799,
+    price: 239000,
     status: 'CURRENT',
     images: ['/images/products/iphone/iphone-16.jpg'],
     description: 'Built for Apple Intelligence. iPhone 16 with Camera Control and the powerful A18 chip.',
@@ -245,10 +264,11 @@ export const iphoneProducts: Product[] = [
     rating: 4.8,
     reviewsCount: 1521,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
     variants: [
-      { id: 'v1', name: 'Black 128GB', price: 799, color: 'Black', colorCode: '#1C1C1E', storage: '128GB' },
-      { id: 'v2', name: 'Ultramarine 128GB', price: 799, color: 'Ultramarine', colorCode: '#4B6CB7', storage: '128GB' },
-      { id: 'v3', name: 'Teal 128GB', price: 799, color: 'Teal', colorCode: '#5DA89F', storage: '128GB' },
+      { id: 'v1', name: 'Black 128GB', price: 239000, color: 'Black', colorCode: '#1C1C1E', storage: '128GB' },
+      { id: 'v2', name: 'Ultramarine 128GB', price: 239000, color: 'Ultramarine', colorCode: '#4B6CB7', storage: '128GB' },
+      { id: 'v3', name: 'Teal 128GB', price: 239000, color: 'Teal', colorCode: '#5DA89F', storage: '128GB' },
     ]
   },
   {
@@ -257,7 +277,7 @@ export const iphoneProducts: Product[] = [
     category: 'iPhone',
     subcategory: 'Devices',
     model: 'iPhone 16e',
-    price: 599,
+    price: 179000,
     status: 'CURRENT',
     images: ['/images/products/iphone/iphone-16e.jpg'],
     description: 'Serious performance, serious value. iPhone 16e with A16 Bionic and Apple Intelligence.',
@@ -271,9 +291,10 @@ export const iphoneProducts: Product[] = [
     rating: 4.7,
     reviewsCount: 876,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
     variants: [
-      { id: 'v1', name: 'Black 128GB', price: 599, color: 'Black', colorCode: '#1C1C1E', storage: '128GB' },
-      { id: 'v2', name: 'White 128GB', price: 599, color: 'White', colorCode: '#F5F5F7', storage: '128GB' },
+      { id: 'v1', name: 'Black 128GB', price: 179000, color: 'Black', colorCode: '#1C1C1E', storage: '128GB' },
+      { id: 'v2', name: 'White 128GB', price: 179000, color: 'White', colorCode: '#F5F5F7', storage: '128GB' },
     ]
   },
   // --- iPhone 15 Series (OLDER) ---
@@ -283,7 +304,7 @@ export const iphoneProducts: Product[] = [
     category: 'iPhone',
     subcategory: 'Devices',
     model: 'iPhone 15 Pro Max',
-    price: 1099,
+    price: 329000,
     status: 'OLDER',
     images: ['/images/products/iphone/iphone-15-pro-max.jpg'],
     description: 'iPhone 15 Pro Max with titanium design, A17 Pro chip, and the world\'s first 5× Telephoto.',
@@ -296,9 +317,10 @@ export const iphoneProducts: Product[] = [
     rating: 4.9,
     reviewsCount: 4821,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
     variants: [
-      { id: 'v1', name: 'Black Titanium 256GB', price: 1099, color: 'Black Titanium', colorCode: '#4B4C4F', storage: '256GB' },
-      { id: 'v2', name: 'Natural Titanium 256GB', price: 1099, color: 'Natural Titanium', colorCode: '#B8B3A9', storage: '256GB' },
+      { id: 'v1', name: 'Black Titanium 256GB', price: 329000, color: 'Black Titanium', colorCode: '#4B4C4F', storage: '256GB' },
+      { id: 'v2', name: 'Natural Titanium 256GB', price: 329000, color: 'Natural Titanium', colorCode: '#B8B3A9', storage: '256GB' },
     ]
   },
   {
@@ -307,7 +329,7 @@ export const iphoneProducts: Product[] = [
     category: 'iPhone',
     subcategory: 'Devices',
     model: 'iPhone 15 Pro',
-    price: 999,
+    price: 299000,
     status: 'OLDER',
     images: ['/images/products/iphone/iphone-15-pro.jpg'],
     description: 'Titanium frame. A17 Pro chip. iPhone 15 Pro redefined what Pro means.',
@@ -320,8 +342,9 @@ export const iphoneProducts: Product[] = [
     rating: 4.9,
     reviewsCount: 6234,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
     variants: [
-      { id: 'v1', name: 'Black Titanium 128GB', price: 999, color: 'Black Titanium', colorCode: '#4B4C4F', storage: '128GB' },
+      { id: 'v1', name: 'Black Titanium 128GB', price: 299000, color: 'Black Titanium', colorCode: '#4B4C4F', storage: '128GB' },
     ]
   },
   {
@@ -330,7 +353,7 @@ export const iphoneProducts: Product[] = [
     category: 'iPhone',
     subcategory: 'Devices',
     model: 'iPhone 15 Plus',
-    price: 799,
+    price: 239000,
     status: 'OLDER',
     images: ['/images/products/iphone/iphone-15-plus.jpg'],
     description: 'iPhone 15 Plus. Big screen, long-lasting battery and a 48MP camera.',
@@ -343,6 +366,7 @@ export const iphoneProducts: Product[] = [
     rating: 4.7,
     reviewsCount: 2145,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
   },
   {
     id: 'iphone-15',
@@ -350,7 +374,7 @@ export const iphoneProducts: Product[] = [
     category: 'iPhone',
     subcategory: 'Devices',
     model: 'iPhone 15',
-    price: 699,
+    price: 209000,
     status: 'OLDER',
     images: ['/images/products/iphone/iphone-15.jpg'],
     description: 'Dynamic Island. 48MP camera. USB-C. iPhone 15 raises the bar.',
@@ -363,9 +387,10 @@ export const iphoneProducts: Product[] = [
     rating: 4.8,
     reviewsCount: 7821,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
     variants: [
-      { id: 'v1', name: 'Black 128GB', price: 699, color: 'Black', colorCode: '#1C1C1E', storage: '128GB' },
-      { id: 'v2', name: 'Blue 128GB', price: 699, color: 'Blue', colorCode: '#4B6CB7', storage: '128GB' },
+      { id: 'v1', name: 'Black 128GB', price: 209000, color: 'Black', colorCode: '#1C1C1E', storage: '128GB' },
+      { id: 'v2', name: 'Blue 128GB', price: 209000, color: 'Blue', colorCode: '#4B6CB7', storage: '128GB' },
     ]
   },
   // --- iPhone 14 Series (OLDER) ---
@@ -375,7 +400,7 @@ export const iphoneProducts: Product[] = [
     category: 'iPhone',
     subcategory: 'Devices',
     model: 'iPhone 14 Pro Max',
-    price: 999,
+    price: 299000,
     status: 'OLDER',
     images: ['/images/products/iphone/iphone-14-pro-max.jpg'],
     description: 'Dynamic Island introduced. A16 Bionic with Always-On display.',
@@ -388,6 +413,7 @@ export const iphoneProducts: Product[] = [
     rating: 4.8,
     reviewsCount: 9231,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
   },
   {
     id: 'iphone-14-pro',
@@ -395,7 +421,7 @@ export const iphoneProducts: Product[] = [
     category: 'iPhone',
     subcategory: 'Devices',
     model: 'iPhone 14 Pro',
-    price: 899,
+    price: 269000,
     status: 'OLDER',
     images: ['/images/products/iphone/iphone-14-pro.jpg'],
     description: 'The Pro that started Dynamic Island. A16 Bionic chip with the best iPhone camera system.',
@@ -408,6 +434,7 @@ export const iphoneProducts: Product[] = [
     rating: 4.8,
     reviewsCount: 11023,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
   },
   {
     id: 'iphone-14-plus',
@@ -415,7 +442,7 @@ export const iphoneProducts: Product[] = [
     category: 'iPhone',
     subcategory: 'Devices',
     model: 'iPhone 14 Plus',
-    price: 699,
+    price: 209000,
     status: 'OLDER',
     images: ['/images/products/iphone/iphone-14-plus.jpg'],
     description: 'Big screen, great battery. iPhone 14 Plus with a 6.7" display.',
@@ -428,6 +455,7 @@ export const iphoneProducts: Product[] = [
     rating: 4.6,
     reviewsCount: 3412,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
   },
   {
     id: 'iphone-14',
@@ -435,7 +463,7 @@ export const iphoneProducts: Product[] = [
     category: 'iPhone',
     subcategory: 'Devices',
     model: 'iPhone 14',
-    price: 599,
+    price: 179000,
     status: 'OLDER',
     images: ['/images/products/iphone/iphone-14.jpg'],
     description: 'Crash Detection. Emergency SOS via satellite. 12MP dual camera.',
@@ -448,6 +476,7 @@ export const iphoneProducts: Product[] = [
     rating: 4.7,
     reviewsCount: 13002,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
   },
   // --- iPhone 13 Series (OLDER) ---
   {
@@ -456,7 +485,7 @@ export const iphoneProducts: Product[] = [
     category: 'iPhone',
     subcategory: 'Devices',
     model: 'iPhone 13 Pro Max',
-    price: 699,
+    price: 209000,
     status: 'OLDER',
     images: ['/images/products/iphone/iphone-13-pro-max.jpg'],
     description: 'ProMotion on a Pro Max for the first time. A15 Bionic with incredible battery life.',
@@ -469,6 +498,7 @@ export const iphoneProducts: Product[] = [
     rating: 4.8,
     reviewsCount: 8734,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
   },
   {
     id: 'iphone-13-pro',
@@ -476,7 +506,7 @@ export const iphoneProducts: Product[] = [
     category: 'iPhone',
     subcategory: 'Devices',
     model: 'iPhone 13 Pro',
-    price: 599,
+    price: 179000,
     status: 'OLDER',
     images: ['/images/products/iphone/iphone-13-pro.jpg'],
     description: 'ProMotion display, 1TB storage, macro photography. iPhone 13 Pro.',
@@ -489,6 +519,7 @@ export const iphoneProducts: Product[] = [
     rating: 4.8,
     reviewsCount: 9827,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
   },
   {
     id: 'iphone-13-mini',
@@ -496,7 +527,7 @@ export const iphoneProducts: Product[] = [
     category: 'iPhone',
     subcategory: 'Devices',
     model: 'iPhone 13 mini',
-    price: 449,
+    price: 134000,
     status: 'OLDER',
     images: ['/images/products/iphone/iphone-13-mini.jpg'],
     description: 'All the power of A15 Bionic in the most compact iPhone. Perfect for one-handed use.',
@@ -509,6 +540,7 @@ export const iphoneProducts: Product[] = [
     rating: 4.7,
     reviewsCount: 5823,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
   },
   {
     id: 'iphone-13',
@@ -516,7 +548,7 @@ export const iphoneProducts: Product[] = [
     category: 'iPhone',
     subcategory: 'Devices',
     model: 'iPhone 13',
-    price: 499,
+    price: 149000,
     status: 'OLDER',
     images: ['/images/products/iphone/iphone-13.jpg'],
     description: 'A15 Bionic, a 12MP dual camera with bigger sensors, and up to 19 hours battery.',
@@ -529,6 +561,7 @@ export const iphoneProducts: Product[] = [
     rating: 4.7,
     reviewsCount: 18430,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
   },
   // --- iPhone 12 Series (OLDER) ---
   {
@@ -537,7 +570,7 @@ export const iphoneProducts: Product[] = [
     category: 'iPhone',
     subcategory: 'Devices',
     model: 'iPhone 12 Pro Max',
-    price: 549,
+    price: 164000,
     status: 'OLDER',
     images: ['/images/products/iphone/iphone-12-pro-max.jpg'],
     description: 'The biggest Pro ever at launch. 5G, OLED, and the first Pro Max triple camera.',
@@ -551,6 +584,7 @@ export const iphoneProducts: Product[] = [
     rating: 4.7,
     reviewsCount: 9231,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
   },
   {
     id: 'iphone-12-pro',
@@ -558,7 +592,7 @@ export const iphoneProducts: Product[] = [
     category: 'iPhone',
     subcategory: 'Devices',
     model: 'iPhone 12 Pro',
-    price: 499,
+    price: 149000,
     status: 'OLDER',
     images: ['/images/products/iphone/iphone-12-pro.jpg'],
     description: 'iPhone 12 Pro with 5G, LiDAR Scanner, and a polished surgical-grade stainless steel design.',
@@ -571,6 +605,7 @@ export const iphoneProducts: Product[] = [
     rating: 4.7,
     reviewsCount: 10823,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
   },
   {
     id: 'iphone-12-mini',
@@ -578,7 +613,7 @@ export const iphoneProducts: Product[] = [
     category: 'iPhone',
     subcategory: 'Devices',
     model: 'iPhone 12 mini',
-    price: 349,
+    price: 104000,
     status: 'OLDER',
     images: ['/images/products/iphone/iphone-12-mini.jpg'],
     description: 'The smallest 5G iPhone with the A14 Bionic and an OLED display.',
@@ -592,6 +627,7 @@ export const iphoneProducts: Product[] = [
     rating: 4.6,
     reviewsCount: 4521,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
   },
   {
     id: 'iphone-12',
@@ -599,7 +635,7 @@ export const iphoneProducts: Product[] = [
     category: 'iPhone',
     subcategory: 'Devices',
     model: 'iPhone 12',
-    price: 399,
+    price: 119000,
     status: 'OLDER',
     images: ['/images/products/iphone/iphone-12.jpg'],
     description: '5G on iPhone for the first time. OLED display, A14 Bionic, and the Ceramic Shield.',
@@ -613,6 +649,7 @@ export const iphoneProducts: Product[] = [
     rating: 4.7,
     reviewsCount: 22102,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
   },
   // --- iPhone 11 Series (OLDER) ---
   {
@@ -621,7 +658,7 @@ export const iphoneProducts: Product[] = [
     category: 'iPhone',
     subcategory: 'Devices',
     model: 'iPhone 11 Pro Max',
-    price: 349,
+    price: 104000,
     status: 'OLDER',
     images: ['/images/products/iphone/iphone-11-pro-max.jpg'],
     description: 'iPhone 11 Pro Max with Super Retina XDR OLED and the first triple camera system.',
@@ -634,6 +671,7 @@ export const iphoneProducts: Product[] = [
     rating: 4.7,
     reviewsCount: 8932,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
   },
   {
     id: 'iphone-11-pro',
@@ -641,7 +679,7 @@ export const iphoneProducts: Product[] = [
     category: 'iPhone',
     subcategory: 'Devices',
     model: 'iPhone 11 Pro',
-    price: 299,
+    price: 89000,
     status: 'OLDER',
     images: ['/images/products/iphone/iphone-11-pro.jpg'],
     description: 'The original triple camera Pro. Matte glass back, A13 Bionic, Super Retina XDR.',
@@ -654,6 +692,7 @@ export const iphoneProducts: Product[] = [
     rating: 4.6,
     reviewsCount: 7123,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
   },
   {
     id: 'iphone-11',
@@ -661,7 +700,7 @@ export const iphoneProducts: Product[] = [
     category: 'iPhone',
     subcategory: 'Devices',
     model: 'iPhone 11',
-    price: 249,
+    price: 74000,
     status: 'OLDER',
     images: ['/images/products/iphone/iphone-11.jpg'],
     description: 'Liquid Retina HD display, wide dual camera, A13 Bionic chip. Still a great iPhone.',
@@ -674,6 +713,7 @@ export const iphoneProducts: Product[] = [
     rating: 4.6,
     reviewsCount: 31204,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
   },
 ]
 
@@ -687,7 +727,7 @@ export const ipadProducts: Product[] = [
     category: 'iPad',
     subcategory: 'Devices',
     model: 'iPad Pro 13-inch',
-    price: 1299,
+    price: 389000,
     status: 'NEW',
     featured: true,
     isNew: true,
@@ -705,10 +745,11 @@ export const ipadProducts: Product[] = [
     rating: 4.9,
     reviewsCount: 892,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
     variants: [
-      { id: 'v1', name: 'Space Black 256GB Wi-Fi', price: 1299, color: 'Space Black', colorCode: '#2C2C2E', storage: '256GB' },
-      { id: 'v2', name: 'Silver 256GB Wi-Fi', price: 1299, color: 'Silver', colorCode: '#E3E4E5', storage: '256GB' },
-      { id: 'v3', name: 'Space Black 512GB Wi-Fi', price: 1499, color: 'Space Black', colorCode: '#2C2C2E', storage: '512GB' },
+      { id: 'v1', name: 'Space Black 256GB Wi-Fi', price: 389000, color: 'Space Black', colorCode: '#2C2C2E', storage: '256GB' },
+      { id: 'v2', name: 'Silver 256GB Wi-Fi', price: 389000, color: 'Silver', colorCode: '#E3E4E5', storage: '256GB' },
+      { id: 'v3', name: 'Space Black 512GB Wi-Fi', price: 449000, color: 'Space Black', colorCode: '#2C2C2E', storage: '512GB' },
     ]
   },
   {
@@ -717,7 +758,7 @@ export const ipadProducts: Product[] = [
     category: 'iPad',
     subcategory: 'Devices',
     model: 'iPad Pro 11-inch',
-    price: 999,
+    price: 299000,
     status: 'NEW',
     featured: true,
     isNew: true,
@@ -734,9 +775,10 @@ export const ipadProducts: Product[] = [
     rating: 4.9,
     reviewsCount: 734,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
     variants: [
-      { id: 'v1', name: 'Space Black 256GB Wi-Fi', price: 999, color: 'Space Black', colorCode: '#2C2C2E', storage: '256GB' },
-      { id: 'v2', name: 'Silver 256GB Wi-Fi', price: 999, color: 'Silver', colorCode: '#E3E4E5', storage: '256GB' },
+      { id: 'v1', name: 'Space Black 256GB Wi-Fi', price: 299000, color: 'Space Black', colorCode: '#2C2C2E', storage: '256GB' },
+      { id: 'v2', name: 'Silver 256GB Wi-Fi', price: 299000, color: 'Silver', colorCode: '#E3E4E5', storage: '256GB' },
     ]
   },
   {
@@ -745,7 +787,7 @@ export const ipadProducts: Product[] = [
     category: 'iPad',
     subcategory: 'Devices',
     model: 'iPad Air 13-inch',
-    price: 1099,
+    price: 329000,
     status: 'CURRENT',
     images: ['/images/products/ipad/ipad-air-13.jpg'],
     description: 'The biggest Air ever. M4 chip, stunning 13" Liquid Retina display, and Apple Pencil Pro.',
@@ -760,9 +802,10 @@ export const ipadProducts: Product[] = [
     rating: 4.8,
     reviewsCount: 512,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
     variants: [
-      { id: 'v1', name: 'Blue 128GB Wi-Fi', price: 1099, color: 'Blue', colorCode: '#4B6CB7', storage: '128GB' },
-      { id: 'v2', name: 'Starlight 128GB Wi-Fi', price: 1099, color: 'Starlight', colorCode: '#F5F4EF', storage: '128GB' },
+      { id: 'v1', name: 'Blue 128GB Wi-Fi', price: 329000, color: 'Blue', colorCode: '#4B6CB7', storage: '128GB' },
+      { id: 'v2', name: 'Starlight 128GB Wi-Fi', price: 329000, color: 'Starlight', colorCode: '#F5F4EF', storage: '128GB' },
     ]
   },
   {
@@ -771,7 +814,7 @@ export const ipadProducts: Product[] = [
     category: 'iPad',
     subcategory: 'Devices',
     model: 'iPad Air 11-inch',
-    price: 799,
+    price: 239000,
     status: 'CURRENT',
     images: ['/images/products/ipad/ipad-air-11.jpg'],
     description: 'Powerfully capable. Impossibly thin. iPad Air 11" with M4 and a gorgeous Liquid Retina display.',
@@ -786,9 +829,10 @@ export const ipadProducts: Product[] = [
     rating: 4.8,
     reviewsCount: 823,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
     variants: [
-      { id: 'v1', name: 'Blue 128GB Wi-Fi', price: 799, color: 'Blue', colorCode: '#4B6CB7', storage: '128GB' },
-      { id: 'v2', name: 'Purple 128GB Wi-Fi', price: 799, color: 'Purple', colorCode: '#7B68B8', storage: '128GB' },
+      { id: 'v1', name: 'Blue 128GB Wi-Fi', price: 239000, color: 'Blue', colorCode: '#4B6CB7', storage: '128GB' },
+      { id: 'v2', name: 'Purple 128GB Wi-Fi', price: 239000, color: 'Purple', colorCode: '#7B68B8', storage: '128GB' },
     ]
   },
   {
@@ -797,7 +841,7 @@ export const ipadProducts: Product[] = [
     category: 'iPad',
     subcategory: 'Devices',
     model: 'iPad 11-inch',
-    price: 349,
+    price: 104000,
     status: 'CURRENT',
     images: ['/images/products/ipad/ipad-11.jpg'],
     description: 'The most popular iPad, now with A16 chip, Apple Intelligence, and a 11-inch Liquid Retina display.',
@@ -811,10 +855,11 @@ export const ipadProducts: Product[] = [
     rating: 4.8,
     reviewsCount: 1823,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
     variants: [
-      { id: 'v1', name: 'Blue 128GB Wi-Fi', price: 349, color: 'Blue', colorCode: '#4B6CB7', storage: '128GB' },
-      { id: 'v2', name: 'Pink 128GB Wi-Fi', price: 349, color: 'Pink', colorCode: '#F2A7B0', storage: '128GB' },
-      { id: 'v3', name: 'Yellow 128GB Wi-Fi', price: 349, color: 'Yellow', colorCode: '#F5D76E', storage: '128GB' },
+      { id: 'v1', name: 'Blue 128GB Wi-Fi', price: 104000, color: 'Blue', colorCode: '#4B6CB7', storage: '128GB' },
+      { id: 'v2', name: 'Pink 128GB Wi-Fi', price: 104000, color: 'Pink', colorCode: '#F2A7B0', storage: '128GB' },
+      { id: 'v3', name: 'Yellow 128GB Wi-Fi', price: 104000, color: 'Yellow', colorCode: '#F5D76E', storage: '128GB' },
     ]
   },
   {
@@ -823,7 +868,7 @@ export const ipadProducts: Product[] = [
     category: 'iPad',
     subcategory: 'Devices',
     model: 'iPad mini',
-    price: 499,
+    price: 149000,
     status: 'CURRENT',
     images: ['/images/products/ipad/ipad-mini.jpg'],
     description: 'Mighty and compact. iPad mini with A17 Pro chip and Apple Intelligence in the palm of your hand.',
@@ -837,10 +882,11 @@ export const ipadProducts: Product[] = [
     rating: 4.8,
     reviewsCount: 1012,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
     variants: [
-      { id: 'v1', name: 'Starlight 128GB Wi-Fi', price: 499, color: 'Starlight', colorCode: '#F5F4EF', storage: '128GB' },
-      { id: 'v2', name: 'Midnight 128GB Wi-Fi', price: 499, color: 'Midnight', colorCode: '#2C2C2E', storage: '128GB' },
-      { id: 'v3', name: 'Purple 128GB Wi-Fi', price: 499, color: 'Purple', colorCode: '#7B68B8', storage: '128GB' },
+      { id: 'v1', name: 'Starlight 128GB Wi-Fi', price: 149000, color: 'Starlight', colorCode: '#F5F4EF', storage: '128GB' },
+      { id: 'v2', name: 'Midnight 128GB Wi-Fi', price: 149000, color: 'Midnight', colorCode: '#2C2C2E', storage: '128GB' },
+      { id: 'v3', name: 'Purple 128GB Wi-Fi', price: 149000, color: 'Purple', colorCode: '#7B68B8', storage: '128GB' },
     ]
   },
 ]
@@ -855,7 +901,7 @@ export const macProducts: Product[] = [
     category: 'Mac',
     subcategory: 'Devices',
     model: 'MacBook Neo',
-    price: 1499,
+    price: 449000,
     status: 'NEW',
     featured: true,
     isNew: true,
@@ -873,10 +919,11 @@ export const macProducts: Product[] = [
     rating: 4.9,
     reviewsCount: 241,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
     variants: [
-      { id: 'v1', name: 'Midnight M5 16GB 512GB', price: 1499, color: 'Midnight', colorCode: '#2C2C2E', storage: '512GB' },
-      { id: 'v2', name: 'Starlight M5 16GB 512GB', price: 1499, color: 'Starlight', colorCode: '#F5F4EF', storage: '512GB' },
-      { id: 'v3', name: 'Midnight M5 24GB 1TB', price: 1799, color: 'Midnight', colorCode: '#2C2C2E', storage: '1TB' },
+      { id: 'v1', name: 'Midnight M5 16GB 512GB', price: 449000, color: 'Midnight', colorCode: '#2C2C2E', storage: '512GB' },
+      { id: 'v2', name: 'Starlight M5 16GB 512GB', price: 449000, color: 'Starlight', colorCode: '#F5F4EF', storage: '512GB' },
+      { id: 'v3', name: 'Midnight M5 24GB 1TB', price: 539000, color: 'Midnight', colorCode: '#2C2C2E', storage: '1TB' },
     ]
   },
   {
@@ -885,7 +932,7 @@ export const macProducts: Product[] = [
     category: 'Mac',
     subcategory: 'Devices',
     model: 'MacBook Air 15-inch',
-    price: 1299,
+    price: 389000,
     status: 'CURRENT',
     featured: true,
     images: ['/images/products/mac/macbook-air-15.jpg'],
@@ -902,10 +949,11 @@ export const macProducts: Product[] = [
     rating: 4.8,
     reviewsCount: 1532,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
     variants: [
-      { id: 'v1', name: 'Midnight M4 16GB 256GB', price: 1299, color: 'Midnight', colorCode: '#2C2C2E', storage: '256GB' },
-      { id: 'v2', name: 'Starlight M4 16GB 256GB', price: 1299, color: 'Starlight', colorCode: '#F5F4EF', storage: '256GB' },
-      { id: 'v3', name: 'Sky Blue M4 16GB 256GB', price: 1299, color: 'Sky Blue', colorCode: '#87C5E5', storage: '256GB' },
+      { id: 'v1', name: 'Midnight M4 16GB 256GB', price: 389000, color: 'Midnight', colorCode: '#2C2C2E', storage: '256GB' },
+      { id: 'v2', name: 'Starlight M4 16GB 256GB', price: 389000, color: 'Starlight', colorCode: '#F5F4EF', storage: '256GB' },
+      { id: 'v3', name: 'Sky Blue M4 16GB 256GB', price: 389000, color: 'Sky Blue', colorCode: '#87C5E5', storage: '256GB' },
     ]
   },
   {
@@ -914,7 +962,7 @@ export const macProducts: Product[] = [
     category: 'Mac',
     subcategory: 'Devices',
     model: 'MacBook Air 13-inch',
-    price: 1099,
+    price: 329000,
     status: 'CURRENT',
     images: ['/images/products/mac/macbook-air-13.jpg'],
     description: 'Strikingly thin. Incredibly capable. MacBook Air with M4 and the world\'s best 13" laptop display.',
@@ -929,9 +977,10 @@ export const macProducts: Product[] = [
     rating: 4.8,
     reviewsCount: 3821,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
     variants: [
-      { id: 'v1', name: 'Midnight M4 16GB 256GB', price: 1099, color: 'Midnight', colorCode: '#2C2C2E', storage: '256GB' },
-      { id: 'v2', name: 'Starlight M4 16GB 256GB', price: 1099, color: 'Starlight', colorCode: '#F5F4EF', storage: '256GB' },
+      { id: 'v1', name: 'Midnight M4 16GB 256GB', price: 329000, color: 'Midnight', colorCode: '#2C2C2E', storage: '256GB' },
+      { id: 'v2', name: 'Starlight M4 16GB 256GB', price: 329000, color: 'Starlight', colorCode: '#F5F4EF', storage: '256GB' },
     ]
   },
   {
@@ -940,7 +989,7 @@ export const macProducts: Product[] = [
     category: 'Mac',
     subcategory: 'Devices',
     model: 'MacBook Pro 16-inch',
-    price: 2499,
+    price: 749000,
     status: 'CURRENT',
     featured: true,
     images: ['/images/products/mac/macbook-pro-16.jpg'],
@@ -956,9 +1005,10 @@ export const macProducts: Product[] = [
     rating: 4.9,
     reviewsCount: 2341,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
     variants: [
-      { id: 'v1', name: 'Space Black M4 Pro 24GB 512GB', price: 2499, color: 'Space Black', colorCode: '#2E2E2E', storage: '512GB' },
-      { id: 'v2', name: 'Silver M4 Pro 24GB 512GB', price: 2499, color: 'Silver', colorCode: '#E3E4E5', storage: '512GB' },
+      { id: 'v1', name: 'Space Black M4 Pro 24GB 512GB', price: 749000, color: 'Space Black', colorCode: '#2E2E2E', storage: '512GB' },
+      { id: 'v2', name: 'Silver M4 Pro 24GB 512GB', price: 749000, color: 'Silver', colorCode: '#E3E4E5', storage: '512GB' },
     ]
   },
   {
@@ -967,7 +1017,7 @@ export const macProducts: Product[] = [
     category: 'Mac',
     subcategory: 'Devices',
     model: 'MacBook Pro 14-inch',
-    price: 1999,
+    price: 599000,
     status: 'CURRENT',
     images: ['/images/products/mac/macbook-pro-14.jpg'],
     description: 'Incredibly powerful. The compact Pro for creators and professionals. M4 Pro chip.',
@@ -982,9 +1032,10 @@ export const macProducts: Product[] = [
     rating: 4.9,
     reviewsCount: 1923,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
     variants: [
-      { id: 'v1', name: 'Space Black M4 Pro 24GB 512GB', price: 1999, color: 'Space Black', colorCode: '#2E2E2E', storage: '512GB' },
-      { id: 'v2', name: 'Silver M4 Pro 24GB 512GB', price: 1999, color: 'Silver', colorCode: '#E3E4E5', storage: '512GB' },
+      { id: 'v1', name: 'Space Black M4 Pro 24GB 512GB', price: 599000, color: 'Space Black', colorCode: '#2E2E2E', storage: '512GB' },
+      { id: 'v2', name: 'Silver M4 Pro 24GB 512GB', price: 599000, color: 'Silver', colorCode: '#E3E4E5', storage: '512GB' },
     ]
   },
   {
@@ -993,7 +1044,7 @@ export const macProducts: Product[] = [
     category: 'Mac',
     subcategory: 'Devices',
     model: 'iMac',
-    price: 1299,
+    price: 389000,
     status: 'CURRENT',
     images: ['/images/products/mac/imac.jpg'],
     description: 'Stunning all-in-one. The iMac with M5 chip, 24" 4.5K Retina display, and slim colorful design.',
@@ -1008,10 +1059,11 @@ export const macProducts: Product[] = [
     rating: 4.8,
     reviewsCount: 1341,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
     variants: [
-      { id: 'v1', name: 'Blue M5 16GB 256GB', price: 1299, color: 'Blue', colorCode: '#4B6CB7', storage: '256GB' },
-      { id: 'v2', name: 'Purple M5 16GB 256GB', price: 1299, color: 'Purple', colorCode: '#7B68B8', storage: '256GB' },
-      { id: 'v3', name: 'Green M5 16GB 256GB', price: 1299, color: 'Green', colorCode: '#5A9E6F', storage: '256GB' },
+      { id: 'v1', name: 'Blue M5 16GB 256GB', price: 389000, color: 'Blue', colorCode: '#4B6CB7', storage: '256GB' },
+      { id: 'v2', name: 'Purple M5 16GB 256GB', price: 389000, color: 'Purple', colorCode: '#7B68B8', storage: '256GB' },
+      { id: 'v3', name: 'Green M5 16GB 256GB', price: 389000, color: 'Green', colorCode: '#5A9E6F', storage: '256GB' },
     ]
   },
   {
@@ -1020,7 +1072,7 @@ export const macProducts: Product[] = [
     category: 'Mac',
     subcategory: 'Devices',
     model: 'Mac mini',
-    price: 599,
+    price: 179000,
     status: 'CURRENT',
     images: ['/images/products/mac/mac-mini.jpg'],
     description: 'Small footprint, powerful M5 chip. Mac mini fits anywhere and powers everything.',
@@ -1034,10 +1086,11 @@ export const macProducts: Product[] = [
     rating: 4.9,
     reviewsCount: 2123,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
     variants: [
-      { id: 'v1', name: 'M5 16GB 256GB', price: 599, color: 'Silver', colorCode: '#E3E4E5', storage: '256GB' },
-      { id: 'v2', name: 'M5 16GB 512GB', price: 799, color: 'Silver', colorCode: '#E3E4E5', storage: '512GB' },
-      { id: 'v3', name: 'M5 Pro 24GB 512GB', price: 1399, color: 'Silver', colorCode: '#E3E4E5', storage: '512GB' },
+      { id: 'v1', name: 'M5 16GB 256GB', price: 179000, color: 'Silver', colorCode: '#E3E4E5', storage: '256GB' },
+      { id: 'v2', name: 'M5 16GB 512GB', price: 239000, color: 'Silver', colorCode: '#E3E4E5', storage: '512GB' },
+      { id: 'v3', name: 'M5 Pro 24GB 512GB', price: 419000, color: 'Silver', colorCode: '#E3E4E5', storage: '512GB' },
     ]
   },
   {
@@ -1046,7 +1099,7 @@ export const macProducts: Product[] = [
     category: 'Mac',
     subcategory: 'Devices',
     model: 'Mac Studio',
-    price: 1999,
+    price: 599000,
     status: 'CURRENT',
     images: ['/images/products/mac/mac-studio.jpg'],
     description: 'Unprecedented power in an impossibly compact design. Mac Studio with M5 Max or M5 Ultra.',
@@ -1060,9 +1113,10 @@ export const macProducts: Product[] = [
     rating: 4.9,
     reviewsCount: 892,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
     variants: [
-      { id: 'v1', name: 'M5 Max 36GB 512GB', price: 1999, color: 'Silver', colorCode: '#E3E4E5', storage: '512GB' },
-      { id: 'v2', name: 'M5 Ultra 96GB 1TB', price: 3999, color: 'Silver', colorCode: '#E3E4E5', storage: '1TB' },
+      { id: 'v1', name: 'M5 Max 36GB 512GB', price: 599000, color: 'Silver', colorCode: '#E3E4E5', storage: '512GB' },
+      { id: 'v2', name: 'M5 Ultra 96GB 1TB', price: 1199000, color: 'Silver', colorCode: '#E3E4E5', storage: '1TB' },
     ]
   },
   {
@@ -1071,7 +1125,7 @@ export const macProducts: Product[] = [
     category: 'Mac',
     subcategory: 'Devices',
     model: 'Mac Pro',
-    price: 6999,
+    price: 2099000,
     status: 'CURRENT',
     images: ['/images/products/mac/mac-pro.jpg'],
     description: 'For the most demanding workflows. Mac Pro with M5 Ultra and extreme expandability.',
@@ -1086,9 +1140,10 @@ export const macProducts: Product[] = [
     rating: 4.9,
     reviewsCount: 412,
     warranty: '1 Year Apple Limited Warranty',
+    warrantyInfo: STANDARD_APPLE_WARRANTY,
     variants: [
-      { id: 'v1', name: 'Tower 192GB 1TB', price: 6999, color: 'Silver', colorCode: '#E3E4E5', storage: '1TB' },
-      { id: 'v2', name: 'Rack 192GB 1TB', price: 6999, color: 'Silver', colorCode: '#E3E4E5', storage: '1TB' },
+      { id: 'v1', name: 'Tower 192GB 1TB', price: 2099000, color: 'Silver', colorCode: '#E3E4E5', storage: '1TB' },
+      { id: 'v2', name: 'Rack 192GB 1TB', price: 2099000, color: 'Silver', colorCode: '#E3E4E5', storage: '1TB' },
     ]
   },
 ]

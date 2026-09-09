@@ -35,6 +35,21 @@ export interface ProductVariant {
   storage?: string
 }
 
+/**
+ * Structured warranty coverage for a product, kept separate from the legacy
+ * free-text `warranty` field so it can be edited per-product (duration,
+ * coverage, or status — e.g. toggled to 'none') without a UI code change,
+ * which is what a future admin portal would manage.
+ */
+export interface WarrantyInfo {
+  status: 'active' | 'none'
+  /** Display label, e.g. "1 Year", "6 Months", "2 Years" */
+  duration: string
+  /** Numeric duration in months, for sorting/logic; 0 when status is 'none' */
+  months: number
+  coverage: string
+}
+
 export interface Product {
   id: string
   name: string
@@ -50,6 +65,7 @@ export interface Product {
   rating: number
   reviewsCount: number
   warranty: string
+  warrantyInfo?: WarrantyInfo
   featured?: boolean
   isNew?: boolean
   status?: 'NEW' | 'CURRENT' | 'OLDER'

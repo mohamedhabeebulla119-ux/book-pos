@@ -18,7 +18,7 @@ const getLocalIPs = () => {
   return ips;
 };
 
-const nextConfig: NextConfig = {
+const nextConfig: NextConfig = { output: "export", images: { unoptimized: true },
   allowedDevOrigins: getLocalIPs(),
 };
 

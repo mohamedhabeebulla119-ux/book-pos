@@ -20,19 +20,22 @@ export interface IPhoneModel {
   };
 }
 
-const createDisplay = (modelName: string, price: number, image: string, specs: Record<string, string>) => ({
-  name: `${modelName} OLED Display Assembly`,
-  price,
-  image,
-  specifications: {
-    "Part Type": "OLED Display Assembly",
-    "Condition": "New (Genuine Apple)",
-    "Compatibility": modelName,
-    ...specs
-  },
-  stock: 10,
-  description: `Genuine Apple OLED Display Assembly replacement for ${modelName}. Includes display, digitizer, and front glass.`
-});
+const createDisplay = (modelName: string, price: number, image: string, specs: Record<string, string>) => {
+  const technology = specs['Technology']?.toUpperCase().includes('LCD') ? 'LCD' : 'OLED'
+  return {
+    name: `${modelName} ${technology} Display Assembly`,
+    price,
+    image,
+    specifications: {
+      "Part Type": `${technology} Display Assembly`,
+      "Condition": "New (Genuine Apple)",
+      "Compatibility": modelName,
+      ...specs
+    },
+    stock: 10,
+    description: `Genuine Apple ${technology} Display Assembly replacement for ${modelName}. Includes display, digitizer, and front glass.`
+  }
+};
 
 const createBattery = (modelName: string, price: number, image: string, specs: Record<string, string>) => ({
   name: `${modelName} Replacement Battery Kit`,
@@ -65,11 +68,11 @@ export const iphoneModels: IPhoneModel[] = [
     battery: createBattery("iPhone 17 Pro", 119, "/images/products/iphone/iphone-17-pro.jpg", { "Capacity": "3577 mAh", "Chemistry": "Lithium-ion polymer" })
   },
   {
-    id: "iphone-17-air",
-    name: "iPhone 17 Air",
-    image: "/images/products/iphone/iphone-17-air.jpg",
-    display: createDisplay("iPhone 17 Air", 349, "/images/products/iphone/iphone-17-air.jpg", { "Size": "6.6-inch", "Resolution": "2740 × 1260 pixels", "Technology": "OLED / ProMotion" }),
-    battery: createBattery("iPhone 17 Air", 119, "/images/products/iphone/iphone-17-air.jpg", { "Capacity": "4000 mAh", "Chemistry": "Lithium-ion polymer" })
+    id: "iphone-air",
+    name: "iPhone Air",
+    image: "/images/products/iphone/iphone-air.jpg",
+    display: createDisplay("iPhone Air", 349, "/images/products/iphone/iphone-air.jpg", { "Size": "6.6-inch", "Resolution": "2740 × 1260 pixels", "Technology": "OLED / ProMotion" }),
+    battery: createBattery("iPhone Air", 119, "/images/products/iphone/iphone-air.jpg", { "Capacity": "4000 mAh", "Chemistry": "Lithium-ion polymer" })
   },
   {
     id: "iphone-17",
