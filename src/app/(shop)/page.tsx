@@ -275,7 +275,7 @@ export default function Home() {
       </section>
 
       {/* Featured Products */}
-      <section className="pt-12 pb-10 bg-featured">
+      <section className="pt-12 pb-10">
         <div className="max-w-4xl mx-auto">
           <div className="px-4">
             <SectionHeading title="Featured Products" subtitle="Carefully selected highlights from our store." />

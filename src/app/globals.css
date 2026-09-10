@@ -38,32 +38,32 @@
    mint + fresh green, with soft green depth.
    ───────────────────────────────────────────── */
 :root {
-  --background: #f3faf6;
+  --background: #ffffff;
   --foreground: #10201a;
   --card: #ffffff;
   --card-foreground: #10201a;
-  --border: #dcefe4;
+  --border: #e6ebe8;
   --primary: #1f8a4d;
   --primary-foreground: #ffffff;
   --primary-strong: #14663a;
   --primary-bright: #47c274;
   --primary-soft: #eaf8ef;
-  --mint: #d8f2e3;
-  --mint-deep: #b6e6c9;
-  --muted: #eff6f2;
+  --mint: #e0eee7;
+  --mint-deep: #cfe8db;
+  --muted: #f4f6f5;
   --muted-foreground: #5f766a;
   --radius: 0.5rem;
 
   /* Gradients, ordered by intensity: surface → well → cta → hero */
-  --grad-surface: linear-gradient(158deg, #ffffff 0%, #fbfefc 46%, #edf8f1 100%);
-  --grad-surface-strong: linear-gradient(158deg, #ffffff 0%, #f2fbf6 45%, #e0f4e9 100%);
-  --grad-glass: linear-gradient(150deg, rgba(255, 255, 255, 0.88) 0%, rgba(238, 250, 243, 0.74) 100%);
+  --grad-surface: linear-gradient(158deg, #ffffff 0%, #ffffff 52%, #fbfdfc 100%);
+  --grad-surface-strong: linear-gradient(158deg, #ffffff 0%, #fdfefe 46%, #f4faf7 100%);
+  --grad-glass: linear-gradient(150deg, rgba(255, 255, 255, 0.94) 0%, rgba(255, 255, 255, 0.84) 100%);
   /* White in the middle so product photos stay true under mix-blend-multiply */
-  --grad-well: radial-gradient(118% 118% at 50% 18%, #ffffff 0%, #f5fcf8 44%, #dcf2e6 100%);
-  --grad-well-strong: radial-gradient(118% 118% at 50% 18%, #ffffff 0%, #eefaf3 38%, #cdedde 100%);
+  --grad-well: radial-gradient(118% 118% at 50% 18%, #ffffff 0%, #fbfdfc 44%, #e9f5ee 100%);
+  --grad-well-strong: radial-gradient(118% 118% at 50% 18%, #ffffff 0%, #f6fbf8 38%, #ddf0e6 100%);
   /* Cooler well used by the cart: pale blue easing into mint, white through the
      middle so studio product shots stay true under mix-blend-multiply. */
-  --grad-well-cool: radial-gradient(120% 120% at 50% 16%, #ffffff 0%, #f7fbfd 36%, #e7f0f9 76%, #ddf0ef 100%);
+  --grad-well-cool: radial-gradient(120% 120% at 50% 16%, #ffffff 0%, #fcfdfe 36%, #eef4fa 76%, #eaf6f2 100%);
   --grad-cta: linear-gradient(135deg, #5ccd82 0%, #34ab61 52%, #1f8a4d 100%);
   --grad-cta-hover: linear-gradient(135deg, #6ad48d 0%, #3cb669 52%, #269655 100%);
   --grad-hero: linear-gradient(152deg, #8ade9d 0%, #4bbb75 42%, #1f9256 100%);
@@ -84,23 +84,26 @@
     linear-gradient(152deg, #9fe6b3 0%, #5cc384 32%, #2b9a60 64%, #0d6236 100%);
   /* Slow specular band that drifts across the stage in light mode */
   --grad-hero-sheen: linear-gradient(118deg, rgba(255, 255, 255, 0) 28%, rgba(255, 255, 255, 0.13) 47%, rgba(212, 247, 227, 0.09) 57%, rgba(255, 255, 255, 0) 72%);
-  /* Featured Products band — deliberately far lighter than the hero so the
-     cards stay the brightest thing in the section. */
-  --grad-featured:
-    radial-gradient(72% 46% at 10% 6%, rgba(201, 240, 218, 0.6) 0%, rgba(201, 240, 218, 0) 70%),
-    radial-gradient(64% 42% at 94% 94%, rgba(186, 235, 206, 0.55) 0%, rgba(186, 235, 206, 0) 68%),
-    linear-gradient(180deg, #ffffff 0%, #f5fcf8 46%, #e9f7ef 100%);
+  /* Floating bottom navigation: a multi-tone green capsule, plus a barely-there
+     dot texture layered over it for depth. */
+  --grad-nav: linear-gradient(118deg, #7ddba0 0%, #52c47f 46%, #2fa165 100%);
+  --grad-nav-dots: radial-gradient(rgba(255, 255, 255, 0.16) 1px, transparent 1px);
+  --shadow-nav-glow: 0 2px 6px rgba(16, 24, 28, 0.06), 0 14px 34px -10px rgba(31, 138, 77, 0.5);
   --grad-pedestal: linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0) 100%);
 
-  --shadow-soft: 0 1px 2px rgba(13, 58, 34, 0.04), 0 10px 30px -14px rgba(13, 58, 34, 0.16);
-  --shadow-float: 0 2px 6px rgba(13, 58, 34, 0.05), 0 22px 48px -22px rgba(13, 58, 34, 0.26);
+  --shadow-soft: 0 1px 2px rgba(16, 24, 28, 0.04), 0 10px 30px -14px rgba(16, 24, 28, 0.14);
+  --shadow-float: 0 2px 6px rgba(16, 24, 28, 0.05), 0 22px 48px -22px rgba(16, 24, 28, 0.22);
   --shadow-glow: 0 12px 30px -10px rgba(35, 163, 88, 0.42);
-  --shadow-nav: 0 4px 12px rgba(13, 58, 34, 0.05), 0 18px 44px -16px rgba(13, 58, 34, 0.24);
+  --shadow-nav: 0 4px 12px rgba(16, 24, 28, 0.05), 0 18px 44px -16px rgba(16, 24, 28, 0.20);
   --ring-focus: rgba(47, 167, 92, 0.18);
 
   /* Floating bottom-nav geometry — the single source of truth for how much room
      scrollable pages and floating action bars must leave so nothing is covered. */
   --nav-h: 66px;
+  /* Height the bar collapses to while scrolling down. Deliberately NOT part of
+     --nav-offset/--nav-safe-pad: those stay pinned to the expanded height so
+     page padding and the floating action bars never move when the bar shrinks. */
+  --nav-h-compact: 48px;
   --nav-gap: 12px;
   --nav-offset: calc(var(--nav-h) + var(--nav-gap) + env(safe-area-inset-bottom));
   --nav-safe-pad: calc(var(--nav-offset) + 1.25rem);
@@ -138,10 +141,10 @@
   /* Dark mode is deliberately unchanged: the drifting --grad-hero overlay on the
      hero card covers this, so the layered light-mode stage never shows here. */
   --grad-hero-stage: linear-gradient(152deg, #1f6641 0%, #164a31 45%, #0b2418 100%);
-  --grad-featured:
-    radial-gradient(72% 46% at 10% 6%, rgba(88, 207, 131, 0.07) 0%, rgba(88, 207, 131, 0) 70%),
-    radial-gradient(64% 42% at 94% 94%, rgba(88, 207, 131, 0.06) 0%, rgba(88, 207, 131, 0) 68%),
-    linear-gradient(180deg, #0a1410 0%, #0b1712 50%, #08110d 100%);
+  /* Same capsule, pitched darker so white labels stay comfortable at night */
+  --grad-nav: linear-gradient(118deg, #2f8b56 0%, #24714a 46%, #175439 100%);
+  --grad-nav-dots: radial-gradient(rgba(255, 255, 255, 0.10) 1px, transparent 1px);
+  --shadow-nav-glow: 0 2px 6px rgba(0, 0, 0, 0.4), 0 14px 34px -10px rgba(0, 0, 0, 0.6);
   --grad-pedestal: linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 100%);
 
   --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 30px -14px rgba(0, 0, 0, 0.6);
@@ -199,9 +202,6 @@ body {
 @utility bg-hero-sheen {
   background-image: var(--grad-hero-sheen);
 }
-@utility bg-featured {
-  background-image: var(--grad-featured);
-}
 /* Curved glossy shelf beneath a hero product */
 @utility bg-pedestal {
   background-image: var(--grad-pedestal);
@@ -219,6 +219,15 @@ body {
 }
 @utility shadow-nav {
   box-shadow: var(--shadow-nav);
+}
+/* Dot texture sits above the gradient; both are one background stack so the
+   capsule needs no extra element. */
+@utility bg-nav {
+  background-image: var(--grad-nav-dots), var(--grad-nav);
+  background-size: 14px 14px, auto;
+}
+@utility shadow-nav-glow {
+  box-shadow: var(--shadow-nav-glow);
 }
 
 .text-gradient-green {

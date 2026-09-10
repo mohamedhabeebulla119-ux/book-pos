@@ -24,7 +24,7 @@ export const onboardingScreens: OnboardingScreen[] = [
     headline: 'Welcome to Apple Expert',
     subtitle: 'Your trusted destination for Apple products, genuine parts and premium accessories.',
     Visual: WelcomeVisual,
-    bg: 'from-emerald-200 to-background dark:from-emerald-500/22 dark:to-background',
+    bg: 'from-emerald-100 to-background dark:from-emerald-500/22 dark:to-background',
   },
   {
     id: 'discover',
@@ -32,7 +32,7 @@ export const onboardingScreens: OnboardingScreen[] = [
     headline: 'Everything Apple. In One Place.',
     subtitle: 'Explore iPhone, iPad, Mac, Apple Watch, AirPods and more.',
     Visual: DiscoverVisual,
-    bg: 'from-green-200 to-background dark:from-green-500/22 dark:to-background',
+    bg: 'from-green-100 to-background dark:from-green-500/22 dark:to-background',
   },
   {
     id: 'parts',
@@ -40,7 +40,7 @@ export const onboardingScreens: OnboardingScreen[] = [
     headline: 'Quality Parts. Reliable Repairs.',
     subtitle: 'Find displays, batteries, replacement parts and accessories for your Apple devices.',
     Visual: PartsVisual,
-    bg: 'from-teal-200 to-background dark:from-teal-500/22 dark:to-background',
+    bg: 'from-teal-100 to-background dark:from-teal-500/22 dark:to-background',
   },
   {
     id: 'shopping',
@@ -48,7 +48,7 @@ export const onboardingScreens: OnboardingScreen[] = [
     headline: 'Simple. Fast. Convenient.',
     subtitle: 'Browse products, compare options, add to your cart and order with ease.',
     Visual: ShoppingVisual,
-    bg: 'from-lime-200 to-background dark:from-lime-500/18 dark:to-background',
+    bg: 'from-lime-100 to-background dark:from-lime-500/18 dark:to-background',
   },
   {
     id: 'ready',
@@ -56,6 +56,6 @@ export const onboardingScreens: OnboardingScreen[] = [
     headline: 'Your Apple Journey Starts Here.',
     subtitle: 'Discover the products and parts you need with Apple Expert.',
     Visual: ReadyVisual,
-    bg: 'from-emerald-300 to-background dark:from-emerald-600/25 dark:to-background',
+    bg: 'from-emerald-200 to-background dark:from-emerald-600/25 dark:to-background',
   },
 ]
