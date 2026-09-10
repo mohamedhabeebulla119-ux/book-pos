@@ -6,7 +6,6 @@ import { motion } from 'framer-motion'
 import { Home, Grid, Search, ShoppingBag, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useCart } from '@/context/CartContext'
-import { BOTTOM_NAV_HEIGHT } from './navConstants'
 
 export function BottomNavigation() {
   const pathname = usePathname()
@@ -14,15 +13,18 @@ export function BottomNavigation() {
 
   const navItems = [
     { name: 'Home', href: '/', icon: Home },
-    { name: 'Categories', href: '/categories', icon: Grid },
+    { name: 'Shop', href: '/categories', icon: Grid },
     { name: 'Search', href: '/search', icon: Search },
     { name: 'Cart', href: '/cart', icon: ShoppingBag, badge: cartCount },
     { name: 'Profile', href: '/profile', icon: User },
   ]
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-background/85 backdrop-blur-xl border-t border-x border-border/70 rounded-t-[28px] pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_32px_rgba(0,0,0,0.08)] dark:shadow-[0_-8px_32px_rgba(0,0,0,0.35)]">
-      <nav className="flex items-center w-full max-w-[480px] mx-auto" style={{ height: BOTTOM_NAV_HEIGHT }}>
+    <div
+      className="fixed left-3 right-3 z-50 mx-auto w-auto max-w-[456px] rounded-[30px] border border-white/60 dark:border-white/8 bg-glass shadow-nav"
+      style={{ bottom: 'calc(var(--nav-gap) + env(safe-area-inset-bottom))' }}
+    >
+      <nav className="flex items-center justify-between px-2" style={{ height: 'var(--nav-h)' }}>
         {navItems.map((item) => {
           const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href))
           const Icon = item.icon
@@ -34,26 +36,37 @@ export function BottomNavigation() {
               aria-label={item.name}
               aria-current={isActive ? 'page' : undefined}
               className={cn(
-                "relative flex flex-col items-center justify-center w-1/5 h-full space-y-[2px] transition-colors duration-200 min-h-[44px] min-w-[44px] touch-manipulation active:scale-95",
+                "relative flex flex-1 flex-col items-center justify-center gap-[3px] h-full min-w-0 rounded-3xl touch-manipulation transition-colors duration-200 active:scale-95",
                 isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <div className="relative flex items-center justify-center h-8 w-8 mb-1">
+              <div className="relative flex items-center justify-center h-9 w-9">
                 {isActive && (
                   <motion.div
                     layoutId="bottom-nav-active-pill"
                     transition={{ type: 'spring', stiffness: 420, damping: 32 }}
-                    className="absolute inset-0 rounded-full bg-gradient-to-br from-violet-500/20 to-sky-400/20 shadow-[0_0_16px_rgba(124,92,255,0.3)]"
+                    className="absolute inset-0 rounded-full bg-gradient-cta shadow-glow"
                   />
                 )}
-                <Icon size={26} strokeWidth={isActive ? 2.5 : 2} className={cn("relative", isActive && "text-primary")} />
+                <Icon
+                  size={21}
+                  strokeWidth={isActive ? 2.4 : 2}
+                  className={cn("relative transition-colors", isActive && "text-white")}
+                />
                 {item.badge !== undefined && item.badge > 0 && (
-                  <span className="absolute -top-1 -right-2 bg-primary text-primary-foreground text-[11px] font-bold h-4 min-w-4 px-1 rounded-full flex items-center justify-center border border-background shadow-sm">
+                  <span className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[10px] font-bold h-4 min-w-4 px-1 rounded-full flex items-center justify-center border border-card shadow-sm">
                     {item.badge > 99 ? '99+' : item.badge}
                   </span>
                 )}
               </div>
-              <span className={cn("text-[11px] sm:text-[12px] font-medium tracking-tight", isActive ? "text-primary font-semibold" : "")}>{item.name}</span>
+              <span
+                className={cn(
+                  "text-[10px] leading-none font-medium tracking-tight truncate max-w-full px-0.5",
+                  isActive && "text-primary font-semibold"
+                )}
+              >
+                {item.name}
+              </span>
             </Link>
           )
         })}

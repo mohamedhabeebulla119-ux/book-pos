@@ -137,9 +137,9 @@ export function Onboarding() {
           {onboardingScreens.map((s, i) => (
             <motion.span
               key={s.id}
-              animate={{ width: i === index ? 22 : 6, opacity: i === index ? 1 : 0.3 }}
+              animate={{ width: i === index ? 24 : 6, opacity: i === index ? 1 : 0.25 }}
               transition={{ duration: 0.3, ease: 'easeOut' }}
-              className="h-1.5 rounded-full bg-primary"
+              className="h-1.5 rounded-full bg-gradient-cta"
             />
           ))}
         </div>
@@ -148,7 +148,7 @@ export function Onboarding() {
           size="lg"
           fullWidth
           onClick={handlePrimary}
-          className="max-w-sm h-14 rounded-full text-base font-semibold bg-gradient-cta text-white border-0 shadow-[0_10px_28px_-8px_rgba(99,60,255,0.5)]"
+          className="max-w-sm h-14 text-base"
         >
           {isLast ? 'Start Shopping' : index === 0 ? 'Get Started' : 'Continue'}
         </Button>

@@ -54,6 +54,12 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
   const tagline = product.description?.split('.')[0]
   const specChips = getProductSpecChips(product)
 
+  // Catalogue shots are studio cutouts on white — they belong inside the mint
+  // well, centred and multiplied. Remote editorial photography is full-bleed
+  // landscape, so letterboxing it in the well reads as a black box; on the
+  // featured card those fill the frame instead.
+  const fillsFrame = featured && !product.images[0]?.startsWith('/')
+
   const handleCta = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
@@ -73,15 +79,15 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
+      initial={{ opacity: 0, y: 14 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-40px' }}
-      whileHover={{ y: -4 }}
-      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      className={`group relative flex flex-col bg-card rounded-2xl overflow-hidden border border-border/50 ${theme.glow} hover:shadow-lg transition-shadow ${featured ? 'w-72 min-w-72 snap-center' : 'w-full'}`}
+      whileHover={{ y: -5 }}
+      transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+      className={`group relative flex flex-col bg-surface rounded-[26px] overflow-hidden border border-mint/80 dark:border-border ${theme.glow} hover:shadow-float transition-shadow duration-400 ${featured ? 'w-[calc(100%-4.5rem)] max-w-[360px] shrink-0 snap-start shadow-card sm:w-full sm:max-w-none' : 'w-full'}`}
     >
-      <Link href={href} className="flex flex-col flex-1 p-3 sm:p-4">
-        <div className={`relative aspect-square w-full mb-3 sm:mb-4 ${iphoneTone ? iphoneTone.well : theme.well} rounded-xl overflow-hidden ${isIphone ? 'p-2 sm:p-2.5' : 'p-4 sm:p-6'} flex items-center justify-center`}>
+      <Link href={href} className="flex flex-col flex-1 p-2.5 sm:p-3">
+        <div className={`relative w-full mb-3 ${featured ? 'aspect-[4/3]' : 'aspect-square'} ${iphoneTone ? iphoneTone.well : theme.well} rounded-[20px] overflow-hidden ${fillsFrame ? 'p-0' : isIphone ? 'p-2 sm:p-2.5' : 'p-4 sm:p-5'} flex items-center justify-center`}>
           {tone !== 'neutral' && (
             <div className="absolute top-2.5 left-2.5 z-10">
               <Badge tone={tone}>{tone === 'new' ? 'New' : 'Current'}</Badge>
@@ -96,7 +102,7 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
             }}
             aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
             aria-pressed={wishlisted}
-            className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-white/85 dark:bg-black/40 backdrop-blur-sm shadow-sm flex items-center justify-center active:scale-90 transition-transform"
+            className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-white/90 dark:bg-black/45 backdrop-blur-sm border border-white/70 dark:border-white/10 shadow-card flex items-center justify-center active:scale-90 transition-transform"
           >
             <motion.span
               key={wishlisted ? 'on' : 'off'}
@@ -107,8 +113,8 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
             >
               <Heart
                 size={15}
-                strokeWidth={2}
-                className={wishlisted ? 'text-rose-500' : 'text-foreground/60'}
+                strokeWidth={2.2}
+                className={wishlisted ? 'text-rose-500' : 'text-primary/70'}
                 fill={wishlisted ? 'currentColor' : 'none'}
               />
             </motion.span>
@@ -128,22 +134,22 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
               alt={product.name}
               onError={() => setImgError(true)}
               onLoad={() => setImgLoaded(true)}
-              className={`relative w-full h-full object-contain mix-blend-multiply dark:mix-blend-normal transition-all duration-500 group-hover:scale-105 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
+              className={`relative w-full h-full transition-all duration-500 ${fillsFrame ? 'object-cover group-hover:scale-[1.04]' : 'object-contain mix-blend-multiply dark:mix-blend-normal group-hover:scale-[1.06]'} ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
             />
           ) : (
-            <div className="relative flex flex-col items-center justify-center text-muted-foreground/50">
+            <div className="relative flex flex-col items-center justify-center text-primary/40">
               <Box size={40} strokeWidth={1.5} />
             </div>
           )}
         </div>
 
-        <div className="flex flex-col flex-1">
+        <div className="flex flex-col flex-1 px-1">
           {product.category === 'Replacement Parts' && product.compatibility?.[0] && (
-            <span className="text-[10px] sm:text-xs text-muted-foreground font-medium mb-1 line-clamp-1">
+            <span className="text-[10px] sm:text-xs text-primary font-semibold mb-1 line-clamp-1">
               For {product.compatibility[0]}
             </span>
           )}
-          <h3 className="font-semibold text-foreground text-sm leading-tight mb-1 line-clamp-2">
+          <h3 className={`font-semibold text-foreground leading-tight mb-1 line-clamp-2 ${featured ? 'text-[15px]' : 'text-sm'}`}>
             {product.name}
           </h3>
           {tagline && (
@@ -158,15 +164,15 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
             </span>
           )}
           <div className="mt-auto">
-            <span className="text-xs sm:text-sm font-semibold block mb-2">
-              {hasVariants && 'From '}{formatPrice(minPrice)}
+            <span className={`font-bold tracking-tight block mb-2 text-foreground ${featured ? 'text-lg' : 'text-[15px] sm:text-base'}`}>
+              {hasVariants && <span className="text-[11px] font-medium text-muted-foreground mr-0.5">From</span>}{formatPrice(minPrice)}
             </span>
             {specChips.length > 0 && (
               <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
                 {specChips.map(({ icon: Icon, label }) => (
                   <span
                     key={label}
-                    className="inline-flex items-center gap-1 px-1.5 py-1 rounded-md bg-muted text-[10px] font-medium text-muted-foreground whitespace-nowrap"
+                    className="inline-flex items-center gap-1 px-1.5 py-1 rounded-lg bg-primary-soft text-[10px] font-semibold text-primary whitespace-nowrap"
                   >
                     <Icon size={11} className="shrink-0" />
                     {label}
@@ -176,7 +182,7 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
             )}
             {product.warrantyInfo?.status === 'active' && (
               <span className="inline-flex items-center gap-1 text-[10px] sm:text-xs font-medium text-muted-foreground">
-                <ShieldCheck size={12} className="shrink-0 text-emerald-600 dark:text-emerald-400" />
+                <ShieldCheck size={12} className="shrink-0 text-primary" />
                 {product.warrantyInfo.duration} Warranty
               </span>
             )}
@@ -184,12 +190,12 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
         </div>
       </Link>
 
-      <div className="p-3 pt-0 sm:p-4 sm:pt-0">
+      <div className="p-2.5 pt-2 sm:p-3 sm:pt-2">
         <Button
           fullWidth
           size="sm"
+          variant={justAdded ? 'secondary' : 'primary'}
           onClick={handleCta}
-          className={justAdded ? 'bg-emerald-500/15 hover:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-foreground hover:bg-foreground text-background hover:opacity-90'}
         >
           {justAdded ? (
             <span className="flex items-center gap-1.5">

@@ -10,9 +10,9 @@ interface BadgeProps {
 }
 
 const toneClasses: Record<BadgeTone, string> = {
-  new: 'bg-emerald-500 text-white',
-  current: 'bg-primary text-primary-foreground',
-  neutral: 'bg-muted text-muted-foreground',
+  new: 'bg-gradient-cta text-white shadow-glow',
+  current: 'bg-white/85 dark:bg-black/40 backdrop-blur-sm text-primary border border-mint-deep',
+  neutral: 'bg-white/80 dark:bg-black/35 backdrop-blur-sm text-muted-foreground border border-border',
   accent: 'bg-foreground text-background',
 }
 

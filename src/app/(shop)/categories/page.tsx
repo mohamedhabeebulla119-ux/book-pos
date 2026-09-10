@@ -37,17 +37,17 @@ export default function CategoriesPage() {
       <Header />
       
       <main className="w-full">
-        <div className="px-5 sm:px-6 py-6 sm:py-8">
+        <div className="px-4 sm:px-6 py-6 sm:py-8">
           <PageHeading title="Categories" subtitle="Browse Apple devices, genuine parts and accessories." />
 
           <motion.div
             variants={containerVariants}
             initial="hidden"
             animate="show"
-            className="space-y-12"
+            className="space-y-9"
           >
             <div>
-              <h2 className="text-2xl sm:text-[28px] font-bold mb-5 tracking-tight">Apple Devices</h2>
+              <h2 className="text-xl sm:text-[28px] font-bold mb-4 tracking-tight">Apple Devices</h2>
               <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 {mainCategories.map((category) => (
                   <motion.div 
@@ -62,7 +62,7 @@ export default function CategoriesPage() {
             </div>
             
             <div>
-              <h2 className="text-2xl sm:text-[28px] font-bold mb-5 tracking-tight">Parts & Accessories</h2>
+              <h2 className="text-xl sm:text-[28px] font-bold mb-4 tracking-tight">Parts & Accessories</h2>
               <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 {serviceCategories.map((category) => (
                   <motion.div key={category.title} variants={itemVariants}>

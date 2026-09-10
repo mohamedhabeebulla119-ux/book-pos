@@ -14,12 +14,12 @@ interface AvatarProps {
 export function Avatar({ name, size = 64 }: AvatarProps) {
   return (
     <div
-      className="rounded-full bg-gradient-to-tr from-violet-500 via-primary to-sky-400 p-[2.5px] shrink-0"
+      className="rounded-full bg-gradient-cta p-[2.5px] shrink-0 shadow-glow"
       style={{ width: size, height: size }}
     >
-      <div className="w-full h-full rounded-full bg-background flex items-center justify-center overflow-hidden">
+      <div className="w-full h-full rounded-full bg-card bg-surface flex items-center justify-center overflow-hidden">
         <span
-          className="font-bold bg-gradient-to-br from-violet-600 to-primary bg-clip-text text-transparent select-none"
+          className="font-bold text-gradient-green select-none"
           style={{ fontSize: size * 0.32 }}
         >
           {getInitials(name)}

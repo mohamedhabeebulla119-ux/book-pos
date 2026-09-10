@@ -33,9 +33,9 @@ export default function CartPage() {
       <Header />
 
       <main className="px-4 py-6">
-        <PageHeading title="Review your bag." className="mb-8" />
-        
-        <div className="space-y-6">
+        <PageHeading title="Review your bag." className="mb-6" />
+
+        <div className="space-y-3.5">
           <AnimatePresence>
             {cart.map((item) => {
               const theme = getCategoryTheme(item.product.category)
@@ -47,9 +47,9 @@ export default function CartPage() {
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
                 transition={{ duration: 0.3 }}
-                className="flex flex-col sm:flex-row gap-4 border-b border-border pb-6 overflow-hidden"
+                className="flex flex-row gap-3.5 bg-surface border border-mint/80 dark:border-border rounded-[26px] p-3 shadow-card overflow-hidden"
               >
-                <div className={`w-full sm:w-32 aspect-square ${theme.well} rounded-2xl p-4 flex items-center justify-center shrink-0 ${theme.glow}`}>
+                <div className={`w-24 sm:w-32 aspect-square ${theme.well} rounded-[20px] p-3 flex items-center justify-center shrink-0 border border-mint/60 dark:border-border`}>
                   <img
                     src={item.product.images[0]}
                     alt={item.product.name}
@@ -57,43 +57,41 @@ export default function CartPage() {
                   />
                 </div>
 
-                <div className="flex-1 flex flex-col justify-between">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <h3 className="font-semibold text-lg leading-tight">{item.product.name}</h3>
-                      {item.variant && (
-                        <p className="text-sm text-muted-foreground mt-1">{item.variant.name}</p>
-                      )}
-                    </div>
-                    <div className="font-semibold text-lg whitespace-nowrap ml-4">
+                <div className="flex-1 min-w-0 flex flex-col justify-between">
+                  <div className="mb-2">
+                    <h3 className="font-semibold text-[15px] leading-tight line-clamp-2">{item.product.name}</h3>
+                    {item.variant && (
+                      <p className="text-xs text-muted-foreground mt-1">{item.variant.name}</p>
+                    )}
+                    <div className="font-bold text-base tracking-tight mt-1.5">
                       {formatPrice((item.variant?.price || item.product.price) * item.quantity)}
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between mt-4">
-                    <div className="flex items-center bg-muted rounded-full px-1 py-1">
+                  <div className="flex items-center justify-between mt-2">
+                    <div className="flex items-center bg-primary-soft border border-mint-deep rounded-full px-1 py-1">
                       <button
                         onClick={() => updateQuantity(item.id, item.quantity - 1)}
                         disabled={item.quantity <= 1}
                         aria-label="Decrease quantity"
-                        className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-background active:scale-90 disabled:opacity-50 transition-all"
+                        className="w-8 h-8 rounded-full text-primary flex items-center justify-center hover:bg-card active:scale-90 disabled:opacity-40 transition-all"
                       >
-                        <Minus size={16} />
+                        <Minus size={15} />
                       </button>
-                      <span className="w-8 text-center font-medium text-sm">{item.quantity}</span>
+                      <span className="w-8 text-center font-semibold text-sm text-foreground">{item.quantity}</span>
                       <button
                         onClick={() => updateQuantity(item.id, item.quantity + 1)}
                         aria-label="Increase quantity"
-                        className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-background active:scale-90 transition-all"
+                        className="w-8 h-8 rounded-full text-primary flex items-center justify-center hover:bg-card active:scale-90 transition-all"
                       >
-                        <Plus size={16} />
+                        <Plus size={15} />
                       </button>
                     </div>
 
                     <button
                       onClick={() => removeFromCart(item.id)}
                       aria-label="Remove item"
-                      className="text-primary hover:text-red-500 active:scale-90 transition-all p-2 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                      className="text-muted-foreground hover:text-red-500 active:scale-90 transition-all p-2 min-h-[44px] min-w-[44px] flex items-center justify-center"
                     >
                       <Trash2 size={20} />
                     </button>
@@ -106,29 +104,30 @@ export default function CartPage() {
         </div>
 
         {/* Order Summary */}
-        <div className="mt-8 pt-6">
-          <div className="flex justify-between items-center mb-4 text-muted-foreground">
+        <div className="mt-6 bg-surface border border-mint/80 dark:border-border rounded-[26px] p-5 shadow-card">
+          <div className="flex justify-between items-center mb-3 text-sm text-muted-foreground">
             <span>Subtotal</span>
-            <span className="font-medium text-foreground">{formatPrice(cartTotal)}</span>
+            <span className="font-semibold text-foreground">{formatPrice(cartTotal)}</span>
           </div>
-          <div className="flex justify-between items-center mb-6 text-muted-foreground">
+          <div className="flex justify-between items-center mb-4 text-sm text-muted-foreground">
             <span>Shipping</span>
-            <span className="font-medium text-foreground">Free</span>
+            <span className="font-semibold text-primary">Free</span>
           </div>
-          <div className="flex justify-between items-center text-xl font-bold pt-4 border-t border-border">
+          <div className="flex justify-between items-center text-lg font-bold pt-4 border-t border-mint-deep">
             <span>Total</span>
             <span>{formatPrice(cartTotal)}</span>
           </div>
         </div>
       </main>
 
-      {/* Checkout Action */}
-      <div className="fixed bottom-16 left-0 right-0 z-40 bg-background/90 backdrop-blur-xl border-t border-border px-4 py-4 pb-safe shadow-[0_-8px_24px_-8px_rgba(0,0,0,0.08)] dark:shadow-[0_-8px_24px_-8px_rgba(0,0,0,0.4)]">
-        <div className="max-w-md mx-auto">
-          <Button fullWidth size="lg" className="h-14 rounded-full text-base font-semibold bg-gradient-cta text-white border-0 shadow-[0_10px_28px_-8px_rgba(99,60,255,0.5)]">
-            Proceed to Checkout <ArrowRight size={18} className="ml-1.5" />
-          </Button>
-        </div>
+      {/* Checkout Action — floats above the bottom navigation */}
+      <div
+        className="fixed left-3 right-3 z-40 mx-auto w-auto max-w-[456px] rounded-[26px] border border-white/60 dark:border-white/8 bg-glass shadow-nav p-3"
+        style={{ bottom: 'calc(var(--nav-offset) + 0.5rem)' }}
+      >
+        <Button fullWidth size="lg" className="h-13 text-[15px]">
+          Proceed to Checkout <ArrowRight size={18} className="ml-1.5" />
+        </Button>
       </div>
     </div>
   )

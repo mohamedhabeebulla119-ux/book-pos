@@ -110,15 +110,15 @@ export default function CategoryProductsPage({ params }: { params: Promise<{ cat
 
         {/* Filter Pills */}
         {filters.length > 1 && (
-          <div className="flex gap-2 mb-5 overflow-x-auto pb-1 scrollbar-hide">
+          <div className="flex gap-2 mb-5 overflow-x-auto pb-1.5 -mx-4 px-4 scrollbar-hide">
             {filters.map(f => (
               <button
                 key={f}
                 onClick={() => setActiveFilter(f)}
-                className={`px-3.5 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
+                className={`shrink-0 px-4 h-10 rounded-full text-[13px] font-semibold whitespace-nowrap transition-all duration-300 active:scale-95 ${
                   activeFilter === f
-                    ? 'bg-foreground text-background shadow-md'
-                    : 'bg-card border border-border/60 text-muted-foreground hover:bg-muted/60 shadow-sm'
+                    ? 'bg-gradient-cta text-white shadow-glow'
+                    : 'bg-surface border border-mint/80 dark:border-border text-muted-foreground hover:text-primary hover:bg-primary-soft shadow-card'
                 }`}
               >
                 {f}
@@ -129,32 +129,33 @@ export default function CategoryProductsPage({ params }: { params: Promise<{ cat
 
         {/* Sort row */}
         <div className="flex items-center justify-between mb-4">
-          <span className="text-sm text-muted-foreground">
+          <span className="text-sm font-medium text-muted-foreground">
             {sortedProducts.length} {sortedProducts.length === 1 ? 'model' : 'models'}
           </span>
           <div className="relative">
             <button
               onClick={() => setShowSort(v => !v)}
-              className="flex items-center gap-1.5 text-sm font-medium text-foreground"
+              className="flex items-center gap-1.5 h-10 px-3.5 rounded-full bg-surface border border-mint/80 dark:border-border shadow-card text-[13px] font-semibold text-primary active:scale-95 transition-all duration-300"
             >
               <SlidersHorizontal size={14} />
               {sortBy === 'price-low' ? 'Price: Low–High' : sortBy === 'price-high' ? 'Price: High–Low' : 'Featured'}
-              <ChevronDown size={14} className={`transition-transform ${showSort ? 'rotate-180' : ''}`} />
+              <ChevronDown size={14} className={`transition-transform duration-300 ${showSort ? 'rotate-180' : ''}`} />
             </button>
             <AnimatePresence>
               {showSort && (
                 <motion.div
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  className="absolute right-0 top-full mt-1 bg-card border border-border rounded-2xl shadow-lg z-10 min-w-[160px] overflow-hidden"
+                  initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                  transition={{ duration: 0.2 }}
+                  className="absolute right-0 top-full mt-2 bg-glass border border-mint-deep dark:border-border rounded-3xl shadow-float z-20 min-w-[172px] overflow-hidden p-1.5"
                 >
                   {['featured', 'price-low', 'price-high'].map(opt => (
                     <button
                       key={opt}
                       onClick={() => { setSortBy(opt); setShowSort(false) }}
-                      className={`w-full px-4 py-2.5 text-left text-sm font-medium hover:bg-muted transition-colors ${
-                        sortBy === opt ? 'text-primary' : 'text-foreground'
+                      className={`w-full px-3.5 py-2.5 text-left text-[13px] font-semibold rounded-2xl transition-colors ${
+                        sortBy === opt ? 'bg-primary-soft text-primary' : 'text-foreground hover:bg-primary-soft/60'
                       }`}
                     >
                       {opt === 'featured' ? 'Featured' : opt === 'price-low' ? 'Price: Low to High' : 'Price: High to Low'}

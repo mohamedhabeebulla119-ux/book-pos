@@ -14,12 +14,14 @@ export default function ProfilePage() {
   const { theme, toggleTheme } = useTheme()
   const { wishlist } = useWishlist()
 
+  const CHIP = 'bg-well-strong border border-mint-deep text-primary'
+
   const menuItems = [
-    { icon: Package, label: 'My Orders', description: 'View and track your orders', chip: 'bg-sky-100 text-sky-600 dark:bg-sky-500/15 dark:text-sky-300' },
-    { icon: Heart, label: 'Wishlist', description: `${wishlist.length} saved item${wishlist.length === 1 ? '' : 's'}`, chip: 'bg-rose-100 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300', href: '/wishlist' },
-    { icon: CreditCard, label: 'Payment Methods', description: 'Manage your saved cards', chip: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300' },
-    { icon: Settings, label: 'Account Settings', description: 'Personal details and security', chip: 'bg-violet-100 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300' },
-    { icon: HelpCircle, label: 'Help & Support', description: 'FAQ and contact information', chip: 'bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300' },
+    { icon: Package, label: 'My Orders', description: 'View and track your orders', chip: CHIP },
+    { icon: Heart, label: 'Wishlist', description: `${wishlist.length} saved item${wishlist.length === 1 ? '' : 's'}`, chip: CHIP, href: '/wishlist' },
+    { icon: CreditCard, label: 'Payment Methods', description: 'Manage your saved cards', chip: CHIP },
+    { icon: Settings, label: 'Account Settings', description: 'Personal details and security', chip: CHIP },
+    { icon: HelpCircle, label: 'Help & Support', description: 'FAQ and contact information', chip: CHIP },
   ]
 
   return (
@@ -28,19 +30,19 @@ export default function ProfilePage() {
 
       <main className="px-4 py-6">
         {/* Profile Header */}
-        <div className="flex items-center gap-4 mb-10">
-          <Avatar name={PROFILE_NAME} size={64} />
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">{PROFILE_NAME}</h1>
-            <p className="text-muted-foreground text-sm">{PROFILE_EMAIL}</p>
+        <div className="flex items-center gap-4 mb-6 bg-surface border border-mint/80 dark:border-border rounded-[26px] p-4 shadow-card">
+          <Avatar name={PROFILE_NAME} size={62} />
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold tracking-tight truncate">{PROFILE_NAME}</h1>
+            <p className="text-muted-foreground text-[13px] truncate">{PROFILE_EMAIL}</p>
           </div>
         </div>
 
         {/* Theme Toggle */}
-        <div className="bg-card rounded-2xl border border-border p-4 mb-6 flex items-center justify-between shadow-card">
+        <div className="bg-surface rounded-[26px] border border-mint/80 dark:border-border p-4 mb-4 flex items-center justify-between shadow-card">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-foreground">
-              {theme === 'dark' ? <Moon size={20} /> : <Sun size={20} />}
+            <div className="w-10 h-10 rounded-full bg-well-strong border border-mint-deep flex items-center justify-center text-primary">
+              {theme === 'dark' ? <Moon size={19} /> : <Sun size={19} />}
             </div>
             <div>
               <div className="font-semibold text-sm">Appearance</div>
@@ -49,22 +51,24 @@ export default function ProfilePage() {
               </div>
             </div>
           </div>
-          <button 
+          <button
             onClick={toggleTheme}
-            className={`w-12 h-6 rounded-full transition-colors relative flex items-center px-1 ${theme === 'dark' ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+            aria-label="Toggle dark mode"
+            aria-pressed={theme === 'dark'}
+            className={`w-13 h-7 rounded-full transition-all duration-300 relative flex items-center px-1 ${theme === 'dark' ? 'bg-gradient-cta shadow-glow' : 'bg-mint-deep'}`}
           >
-            <div 
-              className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform ${theme === 'dark' ? 'translate-x-6' : 'translate-x-0'}`} 
+            <div
+              className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform duration-300 ${theme === 'dark' ? 'translate-x-6' : 'translate-x-0'}`}
             />
           </button>
         </div>
 
         {/* Menu Items */}
-        <div className="bg-card rounded-2xl border border-border overflow-hidden shadow-card mb-6">
+        <div className="bg-surface rounded-[26px] border border-mint/80 dark:border-border overflow-hidden shadow-card mb-4">
           {menuItems.map((item, index) => {
             const Icon = item.icon
-            const rowClassName = `w-full flex items-center justify-between p-4 text-left hover:bg-muted/50 active:bg-muted transition-colors min-h-[44px] ${
-              index !== menuItems.length - 1 ? 'border-b border-border' : ''
+            const rowClassName = `w-full flex items-center justify-between p-4 text-left hover:bg-primary-soft/60 active:bg-primary-soft transition-colors min-h-[44px] ${
+              index !== menuItems.length - 1 ? 'border-b border-mint/70 dark:border-border' : ''
             }`
             const content = (
               <>
@@ -94,7 +98,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Logout */}
-        <button className="w-full flex items-center justify-center gap-2 p-4 text-red-500 font-semibold bg-red-500/10 hover:bg-red-500/20 active:scale-[0.98] rounded-2xl transition-all min-h-[44px]">
+        <button className="w-full flex items-center justify-center gap-2 p-4 text-red-500 font-semibold bg-red-500/8 border border-red-500/20 hover:bg-red-500/15 active:scale-[0.98] rounded-[26px] transition-all duration-300 min-h-[44px]">
           <LogOut size={20} />
           Sign Out
         </button>

@@ -17,12 +17,12 @@ export default function BatterySelectionPage() {
 
       <main className="flex-1 w-full max-w-md mx-auto">
         <div className="px-4 py-3 flex items-center text-sm text-muted-foreground">
-          <Link href="/categories/parts" className="hover:text-primary flex items-center min-h-[44px]">
+          <Link href="/categories/parts" className="hover:text-primary flex items-center min-h-[44px] font-medium">
             <ArrowLeft size={16} className="mr-1" /> Back to Parts
           </Link>
         </div>
 
-        <div className="px-5 sm:px-6 py-4">
+        <div className="px-4 sm:px-6 py-4">
           <CategoryHero
             eyebrow={hero.eyebrow}
             title={hero.headline}
@@ -31,7 +31,7 @@ export default function BatterySelectionPage() {
             category="batteries"
             className="mb-6"
           />
-          <p className="text-sm text-muted-foreground mb-4 -mt-2">Select your iPhone model</p>
+          <p className="text-[13px] font-semibold text-primary mb-4 -mt-2">Select your iPhone model</p>
           <PartModelGrid models={iphoneModels} partKind="battery" />
         </div>
       </main>

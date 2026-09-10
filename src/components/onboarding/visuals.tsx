@@ -39,14 +39,14 @@ export function DiscoverVisual() {
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.08 * i, ease: easeOut }}
-          className={`relative overflow-hidden rounded-2xl bg-muted ${tile.span}`}
+          className={`relative overflow-hidden rounded-[20px] bg-muted border border-mint/70 dark:border-border ${tile.span}`}
         >
           <img
             src={tile.image}
             alt={tile.label}
             className="absolute inset-0 w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#04140b]/78 via-[#04140b]/10 to-transparent" />
           <span className="absolute bottom-2 left-2.5 text-white text-[11px] sm:text-xs font-semibold tracking-tight drop-shadow">
             {tile.label}
           </span>
@@ -59,22 +59,22 @@ export function DiscoverVisual() {
 export function PartsVisual() {
   return (
     <div className="relative w-full max-w-[300px] mx-auto">
-      <div className="relative aspect-[4/3] rounded-3xl overflow-hidden bg-muted">
+      <div className="relative aspect-[4/3] rounded-[26px] overflow-hidden bg-muted border border-mint/70 dark:border-border">
         <img
           src="/images/categories/replacement-parts.jpg"
           alt="Genuine-quality replacement parts"
           className="absolute inset-0 w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#04140b]/65 via-transparent to-transparent" />
       </div>
 
       <motion.div
         initial={{ opacity: 0, y: 10, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.5, delay: 0.35, ease: easeOut }}
-        className="absolute -bottom-4 -left-3 bg-card border border-border/60 rounded-2xl shadow-lg px-3.5 py-2.5 flex items-center gap-2"
+        className="absolute -bottom-4 -left-3 bg-surface border border-mint-deep rounded-2xl shadow-float px-3.5 py-2.5 flex items-center gap-2"
       >
-        <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+        <div className="w-7 h-7 rounded-full bg-primary-soft border border-mint-deep flex items-center justify-center text-primary shrink-0">
           <ShieldCheck size={14} strokeWidth={2.2} />
         </div>
         <span className="text-[11px] sm:text-xs font-semibold text-foreground whitespace-nowrap">Genuine Quality</span>
@@ -84,9 +84,9 @@ export function PartsVisual() {
         initial={{ opacity: 0, y: 10, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.5, delay: 0.5, ease: easeOut }}
-        className="absolute -top-4 -right-3 bg-card border border-border/60 rounded-2xl shadow-lg px-3.5 py-2.5 flex items-center gap-2"
+        className="absolute -top-4 -right-3 bg-surface border border-mint-deep rounded-2xl shadow-float px-3.5 py-2.5 flex items-center gap-2"
       >
-        <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+        <div className="w-7 h-7 rounded-full bg-primary-soft border border-mint-deep flex items-center justify-center text-primary shrink-0">
           <Wrench size={14} strokeWidth={2.2} />
         </div>
         <span className="text-[11px] sm:text-xs font-semibold text-foreground whitespace-nowrap">Displays & Batteries</span>
@@ -102,9 +102,9 @@ export function ShoppingVisual() {
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: easeOut }}
-        className="relative bg-card border border-border/50 rounded-2xl overflow-hidden shadow-lg"
+        className="relative bg-surface border border-mint-deep rounded-[26px] overflow-hidden shadow-float"
       >
-        <div className="relative aspect-square w-full bg-muted/40 flex items-center justify-center p-6">
+        <div className="relative aspect-square w-full bg-well flex items-center justify-center p-6">
           <img
             src="/images/products/iphone/iphone-17-pro-max.jpg"
             alt="iPhone 17 Pro Max"
@@ -115,7 +115,7 @@ export function ShoppingVisual() {
           <h3 className="font-semibold text-foreground text-sm leading-tight mb-1">iPhone 17 Pro Max</h3>
           <span className="text-xs font-medium text-muted-foreground">{formatPrice(359000)}</span>
 
-          <div className="mt-3 h-9 rounded-full bg-muted text-foreground text-xs font-medium flex items-center justify-center gap-1.5">
+          <div className="mt-3 h-9 rounded-full bg-gradient-cta text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-glow">
             <ShoppingBag size={13} strokeWidth={2.2} />
             Add to Cart
           </div>
@@ -125,7 +125,7 @@ export function ShoppingVisual() {
           initial={{ opacity: 0, scale: 0.6 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.4, delay: 0.6, ease: easeOut }}
-          className="absolute top-3 right-3 w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-md"
+          className="absolute top-3 right-3 w-7 h-7 rounded-full bg-gradient-cta text-white flex items-center justify-center shadow-glow"
         >
           <Check size={15} strokeWidth={3} />
         </motion.div>
@@ -142,7 +142,7 @@ export function ReadyVisual() {
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.6, ease: easeOut }}
-        className="relative z-10 bg-white rounded-[28px] px-6 py-4 shadow-xl flex items-center justify-center"
+        className="relative z-10 bg-white rounded-[28px] px-6 py-4 shadow-float border border-mint-deep flex items-center justify-center"
       >
         <img
           src="/logo.jpg"

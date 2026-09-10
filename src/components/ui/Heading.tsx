@@ -58,7 +58,7 @@ export function SectionHeading({ eyebrow, title, subtitle, seeAllHref, seeAllLab
       {seeAllHref && (
         <Link
           href={seeAllHref}
-          className="shrink-0 flex items-center text-sm font-semibold text-primary hover:opacity-70 transition-opacity mb-1 min-h-[44px] py-2"
+          className="shrink-0 flex items-center gap-0.5 text-[13px] font-semibold text-primary bg-primary-soft border border-mint-deep rounded-full pl-3.5 pr-2.5 h-9 hover:bg-mint active:scale-95 transition-all duration-300 mb-1"
         >
           {seeAllLabel} <ChevronRight size={16} className="ml-0.5" />
         </Link>

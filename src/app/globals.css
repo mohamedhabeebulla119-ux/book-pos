@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* Tailwind v4 resolves `dark:` against prefers-color-scheme by default, but the
+   in-app theme toggle drives a `.dark` class on <html>. Bind the variant to that
+   class so utilities and the CSS variables below always agree. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -10,40 +15,136 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
-  
+
+  /* Green scale — theme-aware, so components never need `dark:` pairs for greens */
+  --color-primary-strong: var(--primary-strong);
+  --color-primary-bright: var(--primary-bright);
+  --color-primary-soft: var(--primary-soft);
+  --color-mint: var(--mint);
+  --color-mint-deep: var(--mint-deep);
+
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 16px);
   --radius-full: 9999px;
-  
+
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
 }
 
+/* ─────────────────────────────────────────────
+   Light theme — the primary design: white + pale
+   mint + fresh green, with soft green depth.
+   ───────────────────────────────────────────── */
 :root {
-  --background: #faf9fd;
-  --foreground: #1d1d1f;
+  --background: #f3faf6;
+  --foreground: #10201a;
   --card: #ffffff;
-  --card-foreground: #1d1d1f;
-  --border: #e5e5ea;
-  --primary: #0071e3;
+  --card-foreground: #10201a;
+  --border: #dcefe4;
+  --primary: #1f8a4d;
   --primary-foreground: #ffffff;
-  --muted: #f5f5f7;
-  --muted-foreground: #86868b;
+  --primary-strong: #14663a;
+  --primary-bright: #47c274;
+  --primary-soft: #eaf8ef;
+  --mint: #d8f2e3;
+  --mint-deep: #b6e6c9;
+  --muted: #eff6f2;
+  --muted-foreground: #5f766a;
   --radius: 0.5rem;
+
+  /* Gradients, ordered by intensity: surface → well → cta → hero */
+  --grad-surface: linear-gradient(158deg, #ffffff 0%, #fbfefc 46%, #edf8f1 100%);
+  --grad-surface-strong: linear-gradient(158deg, #ffffff 0%, #f2fbf6 45%, #e0f4e9 100%);
+  --grad-glass: linear-gradient(150deg, rgba(255, 255, 255, 0.88) 0%, rgba(238, 250, 243, 0.74) 100%);
+  /* White in the middle so product photos stay true under mix-blend-multiply */
+  --grad-well: radial-gradient(118% 118% at 50% 18%, #ffffff 0%, #f5fcf8 44%, #dcf2e6 100%);
+  --grad-well-strong: radial-gradient(118% 118% at 50% 18%, #ffffff 0%, #eefaf3 38%, #cdedde 100%);
+  --grad-cta: linear-gradient(135deg, #5ccd82 0%, #34ab61 52%, #1f8a4d 100%);
+  --grad-cta-hover: linear-gradient(135deg, #6ad48d 0%, #3cb669 52%, #269655 100%);
+  --grad-hero: linear-gradient(152deg, #8ade9d 0%, #4bbb75 42%, #1f9256 100%);
+  /* Homepage hero stage — a layered atmosphere rather than one flat green.
+     Painted top layer first: two faint curved light arcs, a white bloom behind
+     the product group, mint light from the top-left, then deep-green depth in
+     the left and bottom-right corners, over a pale-mint → fresh-green →
+     forest-green base. Kept separate from --grad-hero so the other surfaces
+     using that token are untouched. */
+  --grad-hero-stage:
+    radial-gradient(140% 105% at 6% 130%, rgba(255, 255, 255, 0) 60%, rgba(255, 255, 255, 0.16) 64.5%, rgba(255, 255, 255, 0) 70%),
+    radial-gradient(125% 95% at 110% -24%, rgba(230, 253, 240, 0) 62%, rgba(230, 253, 240, 0.15) 66.5%, rgba(230, 253, 240, 0) 72%),
+    radial-gradient(90% 44% at 50% 86%, rgba(255, 255, 255, 0.62) 0%, rgba(224, 250, 235, 0.28) 40%, rgba(255, 255, 255, 0) 74%),
+    radial-gradient(58% 40% at 4% 84%, rgba(236, 254, 243, 0.24) 0%, rgba(236, 254, 243, 0) 66%),
+    linear-gradient(180deg, rgba(6, 56, 33, 0.46) 0%, rgba(6, 56, 33, 0.16) 32%, rgba(6, 56, 33, 0) 54%),
+    radial-gradient(86% 66% at 99% 100%, rgba(7, 60, 36, 0.58) 0%, rgba(7, 60, 36, 0) 62%),
+    radial-gradient(52% 46% at -10% 52%, rgba(9, 72, 44, 0.34) 0%, rgba(9, 72, 44, 0) 62%),
+    linear-gradient(152deg, #9fe6b3 0%, #5cc384 32%, #2b9a60 64%, #0d6236 100%);
+  /* Slow specular band that drifts across the stage in light mode */
+  --grad-hero-sheen: linear-gradient(118deg, rgba(255, 255, 255, 0) 28%, rgba(255, 255, 255, 0.13) 47%, rgba(212, 247, 227, 0.09) 57%, rgba(255, 255, 255, 0) 72%);
+  /* Featured Products band — deliberately far lighter than the hero so the
+     cards stay the brightest thing in the section. */
+  --grad-featured:
+    radial-gradient(72% 46% at 10% 6%, rgba(201, 240, 218, 0.6) 0%, rgba(201, 240, 218, 0) 70%),
+    radial-gradient(64% 42% at 94% 94%, rgba(186, 235, 206, 0.55) 0%, rgba(186, 235, 206, 0) 68%),
+    linear-gradient(180deg, #ffffff 0%, #f5fcf8 46%, #e9f7ef 100%);
+  --grad-pedestal: linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0) 100%);
+
+  --shadow-soft: 0 1px 2px rgba(13, 58, 34, 0.04), 0 10px 30px -14px rgba(13, 58, 34, 0.16);
+  --shadow-float: 0 2px 6px rgba(13, 58, 34, 0.05), 0 22px 48px -22px rgba(13, 58, 34, 0.26);
+  --shadow-glow: 0 12px 30px -10px rgba(35, 163, 88, 0.42);
+  --shadow-nav: 0 4px 12px rgba(13, 58, 34, 0.05), 0 18px 44px -16px rgba(13, 58, 34, 0.24);
+  --ring-focus: rgba(47, 167, 92, 0.18);
+
+  /* Floating bottom-nav geometry — the single source of truth for how much room
+     scrollable pages and floating action bars must leave so nothing is covered. */
+  --nav-h: 66px;
+  --nav-gap: 12px;
+  --nav-offset: calc(var(--nav-h) + var(--nav-gap) + env(safe-area-inset-bottom));
+  --nav-safe-pad: calc(var(--nav-offset) + 1.25rem);
 }
 
+/* ─────────────────────────────────────────────
+   Dark theme — deep charcoal-green, not inverted:
+   dark green atmosphere with soft mint highlights.
+   ───────────────────────────────────────────── */
 .dark {
-  --background: #0a0a12;
-  --foreground: #f5f5f7;
-  --card: #18171f;
-  --card-foreground: #f5f5f7;
-  --border: #322f3d;
-  --primary: #2997ff;
-  --primary-foreground: #ffffff;
-  --muted: #1c1a24;
-  --muted-foreground: #9a97a8;
+  --background: #08110d;
+  --foreground: #e9f4ed;
+  --card: #111b15;
+  --card-foreground: #e9f4ed;
+  --border: #24352b;
+  --primary: #58cf83;
+  --primary-foreground: #05190e;
+  --primary-strong: #8ce4a9;
+  --primary-bright: #3fb96c;
+  --primary-soft: rgba(88, 207, 131, 0.12);
+  --mint: rgba(88, 207, 131, 0.18);
+  --mint-deep: rgba(88, 207, 131, 0.28);
+  --muted: #17231c;
+  --muted-foreground: #94ac9c;
+
+  --grad-surface: linear-gradient(158deg, #17231c 0%, #121d17 48%, #0f1913 100%);
+  --grad-surface-strong: linear-gradient(158deg, #1c2c22 0%, #15221b 48%, #101a14 100%);
+  --grad-glass: linear-gradient(150deg, rgba(23, 35, 28, 0.88) 0%, rgba(15, 25, 19, 0.76) 100%);
+  --grad-well: radial-gradient(118% 118% at 50% 18%, rgba(88, 207, 131, 0.16) 0%, rgba(88, 207, 131, 0.07) 46%, rgba(255, 255, 255, 0.02) 100%);
+  --grad-well-strong: radial-gradient(118% 118% at 50% 18%, rgba(88, 207, 131, 0.26) 0%, rgba(88, 207, 131, 0.1) 42%, rgba(255, 255, 255, 0.02) 100%);
+  --grad-cta: linear-gradient(135deg, #5ed588 0%, #34ab61 52%, #1c7d46 100%);
+  --grad-cta-hover: linear-gradient(135deg, #6cdc93 0%, #3cb669 52%, #22894e 100%);
+  --grad-hero: linear-gradient(152deg, #1f6641 0%, #164a31 45%, #0b2418 100%);
+  /* Dark mode is deliberately unchanged: the drifting --grad-hero overlay on the
+     hero card covers this, so the layered light-mode stage never shows here. */
+  --grad-hero-stage: linear-gradient(152deg, #1f6641 0%, #164a31 45%, #0b2418 100%);
+  --grad-featured:
+    radial-gradient(72% 46% at 10% 6%, rgba(88, 207, 131, 0.07) 0%, rgba(88, 207, 131, 0) 70%),
+    radial-gradient(64% 42% at 94% 94%, rgba(88, 207, 131, 0.06) 0%, rgba(88, 207, 131, 0) 68%),
+    linear-gradient(180deg, #0a1410 0%, #0b1712 50%, #08110d 100%);
+  --grad-pedestal: linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 100%);
+
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 30px -14px rgba(0, 0, 0, 0.6);
+  --shadow-float: 0 2px 6px rgba(0, 0, 0, 0.35), 0 22px 48px -22px rgba(0, 0, 0, 0.7);
+  --shadow-glow: 0 12px 30px -10px rgba(88, 207, 131, 0.3);
+  --shadow-nav: 0 4px 12px rgba(0, 0, 0, 0.4), 0 18px 44px -16px rgba(0, 0, 0, 0.6);
+  --ring-focus: rgba(88, 207, 131, 0.22);
 }
 
 body {
@@ -54,22 +155,124 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-.shadow-card {
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px -12px rgba(0, 0, 0, 0.10);
+/* ── Surfaces ─────────────────────────────────
+   Registered as Tailwind utilities (not plain CSS rules) so they compose with
+   variants — `hover:bg-surface-strong`, `sm:bg-well` — and so conflicting
+   background utilities resolve by the normal cascade instead of by file order.
+   ───────────────────────────────────────────── */
+@utility bg-surface {
+  background-image: var(--grad-surface);
 }
-.dark .shadow-card {
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+@utility bg-surface-strong {
+  background-image: var(--grad-surface-strong);
+}
+@utility bg-glass {
+  background-image: var(--grad-glass);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+}
+@utility bg-well {
+  background-image: var(--grad-well);
+}
+@utility bg-well-strong {
+  background-image: var(--grad-well-strong);
+}
+@utility bg-gradient-cta {
+  background-image: var(--grad-cta);
+}
+@utility bg-gradient-cta-hover {
+  background-image: var(--grad-cta-hover);
+}
+@utility bg-gradient-hero {
+  background-image: var(--grad-hero);
+}
+@utility bg-hero-stage {
+  background-image: var(--grad-hero-stage);
+}
+@utility bg-hero-sheen {
+  background-image: var(--grad-hero-sheen);
+}
+@utility bg-featured {
+  background-image: var(--grad-featured);
+}
+/* Curved glossy shelf beneath a hero product */
+@utility bg-pedestal {
+  background-image: var(--grad-pedestal);
 }
 
-.bg-gradient-cta {
-  background-image: linear-gradient(135deg, var(--primary) 0%, #7c5cff 100%);
+/* ── Depth ────────────────────────────────── */
+@utility shadow-card {
+  box-shadow: var(--shadow-soft);
+}
+@utility shadow-float {
+  box-shadow: var(--shadow-float);
+}
+@utility shadow-glow {
+  box-shadow: var(--shadow-glow);
+}
+@utility shadow-nav {
+  box-shadow: var(--shadow-nav);
+}
+
+.text-gradient-green {
+  background-image: linear-gradient(120deg, var(--primary-bright), var(--primary));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ── Motion ───────────────────────────────── */
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 4px var(--ring-focus);
+}
+
+/* Slow hue drift for hero gradients. Animates background-position only —
+   never filter/blur — to stay cheap in low-end Android WebViews. */
+@keyframes drift {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+.animate-drift {
+  background-size: 160% 160%;
+  animation: drift 18s ease-in-out infinite;
+}
+
+/* Gentle hover for the hero device. Transform-only, so it stays on the
+   compositor and costs nothing to repaint in low-end Android WebViews. */
+@keyframes float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -10px, 0);
+  }
+}
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-drift,
+  .animate-float {
+    animation: none;
+  }
 }
 
 /* Hide scrollbar for clean UI but allow scrolling */
-.no-scrollbar::-webkit-scrollbar {
+.no-scrollbar::-webkit-scrollbar,
+.scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
-.no-scrollbar {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+.no-scrollbar,
+.scrollbar-hide {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
 }
