@@ -3,7 +3,7 @@ import { formatPrice } from '@/utils/formatPrice'
 
 import { use, useState } from 'react'
 import { Header } from '@/components/ui/Header'
-import { useCatalogProduct } from '@/lib/catalog'
+import { useCatalogProduct, resolveVariant, selectedPrice } from '@/lib/catalog'
 import { iphoneModels } from '@/data/iphoneModels'
 import { categorySlugFromName } from '@/data/categoryMeta'
 import { getCategoryTheme } from '@/lib/categoryTheme'
@@ -23,7 +23,10 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
   const product = useCatalogProduct(resolvedParams.id)
   const { addToCart } = useCart()
 
-  const [selectedVariant, setSelectedVariant] = useState(product?.variants?.[0])
+  // Hold the variant ID, not the variant object. The object is re-read from the
+  // current product on every render, so a live price update reaches the price,
+  // the sticky bar and addToCart instead of being frozen at first render.
+  const [selectedVariantId, setSelectedVariantId] = useState<string | undefined>(undefined)
   const [activeImageIndex, setActiveImageIndex] = useState(0)
   const [quantity, setQuantity] = useState(1)
 
@@ -42,7 +45,8 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
     )
   }
 
-  const currentPrice = selectedVariant?.price || product.price
+  const selectedVariant = resolveVariant(product, selectedVariantId)
+  const currentPrice = selectedPrice(product, selectedVariant)
   const theme = getCategoryTheme(product.category)
 
   // Check if there are repair parts for this device (currently iPhones)
@@ -152,7 +156,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                   return (
                     <button
                       key={variant.id}
-                      onClick={() => setSelectedVariant(variant)}
+                      onClick={() => setSelectedVariantId(variant.id)}
                       className={`w-full flex items-center justify-between p-4 rounded-[20px] border transition-all duration-300 active:scale-[0.99] ${
                         isSelected
                           ? 'border-primary/45 bg-well-strong shadow-card'

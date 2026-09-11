@@ -237,10 +237,14 @@ export function applyLiveCatalog(
       const bundledByKey = new Map((product.variants ?? []).map((v) => [v.id, v]))
       variants = liveVariants.map((lv) => {
         const bundled = bundledByKey.get(lv.legacyKey)
+        // Precedence matters: the live product-level price must beat the
+        // BUNDLED variant price, otherwise a variant with no price row of its
+        // own keeps showing a stale number shipped in the APK even though the
+        // database has a newer one. Bundled values are the last resort only.
         const price =
           live.variantPrice.get(`${product.id}:${lv.legacyKey}`) ??
-          bundled?.price ??
           livePrice ??
+          bundled?.price ??
           product.price
         return {
           id: lv.legacyKey,

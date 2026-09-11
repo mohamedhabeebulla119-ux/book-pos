@@ -9,6 +9,7 @@ import { Button } from './Button'
 import { Badge, statusTone } from './Badge'
 import { useCart } from '@/context/CartContext'
 import { useWishlist } from '@/context/WishlistContext'
+import { displayPrice, hasVariantPricing } from '@/lib/catalog'
 import { getCategoryTheme } from '@/lib/categoryTheme'
 import { getIphoneCardTone } from '@/lib/iphoneCardTheme'
 import { getProductSpecChips } from '@/lib/productSpecChips'
@@ -46,8 +47,8 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
 
   const href = resolveHref(product)
   const isPartSelector = product.id === 'part-iphone-15-pro-display' || product.id === 'part-iphone-15-pro-battery'
-  const hasVariants = !!product.variants && product.variants.length > 0
-  const minPrice = hasVariants ? Math.min(...product.variants!.map(v => v.price)) : product.price
+  const hasVariants = hasVariantPricing(product)
+  const minPrice = displayPrice(product)
   const tone = statusTone(product.status) !== 'neutral' ? statusTone(product.status) : (product.isNew ? 'new' : 'neutral')
 
   const ctaLabel = isPartSelector ? 'Select Model' : hasVariants ? 'View Options' : justAdded ? 'Added' : 'Add to Cart'
