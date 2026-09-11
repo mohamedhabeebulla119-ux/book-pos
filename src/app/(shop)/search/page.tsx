@@ -4,19 +4,14 @@ import { useState } from 'react'
 import { Header } from '@/components/ui/Header'
 import { ProductCard } from '@/components/ui/ProductCard'
 import { EmptyState } from '@/components/ui/EmptyState'
-import { products } from '@/data/mockData'
-import { allDevices } from '@/data/deviceData'
+import { useCatalogProducts } from '@/lib/catalog'
 import { Search as SearchIcon, X } from 'lucide-react'
 import { motion } from 'framer-motion'
 
-// Combine mockData products with our new comprehensive device catalog
-const combinedProducts = [
-  ...allDevices,
-  ...products.filter(p => !allDevices.some(d => d.id === p.id))
-]
-
 export default function SearchPage() {
   const [query, setQuery] = useState('')
+  // Bundled catalog on first render, live prices/stock once Supabase responds.
+  const combinedProducts = useCatalogProducts()
   
   const searchResults = query.trim() === '' 
     ? [] 

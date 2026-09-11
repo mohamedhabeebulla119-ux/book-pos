@@ -3,8 +3,7 @@ import { formatPrice } from '@/utils/formatPrice'
 
 import { use, useState } from 'react'
 import { Header } from '@/components/ui/Header'
-import { products } from '@/data/mockData'
-import { allDevices } from '@/data/deviceData'
+import { useCatalogProduct } from '@/lib/catalog'
 import { iphoneModels } from '@/data/iphoneModels'
 import { categorySlugFromName } from '@/data/categoryMeta'
 import { getCategoryTheme } from '@/lib/categoryTheme'
@@ -17,16 +16,11 @@ import { motion } from 'framer-motion'
 import { ArrowLeft, ChevronRight, Check, Star, Wrench, ShieldCheck, PackageSearch, Minus, Plus } from 'lucide-react'
 import Link from 'next/link'
 
-// Combine mockData products with our new comprehensive device catalog
-// Filter out duplicates by ID, giving precedence to allDevices
-const combinedProducts = [
-  ...allDevices,
-  ...products.filter(p => !allDevices.some(d => d.id === p.id))
-]
-
 export default function ProductDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
-  const product = combinedProducts.find(p => p.id === resolvedParams.id)
+  // Resolves against the bundled catalog immediately, then against the live
+  // catalog once it loads. Live pricing and stock arrive with no route change.
+  const product = useCatalogProduct(resolvedParams.id)
   const { addToCart } = useCart()
 
   const [selectedVariant, setSelectedVariant] = useState(product?.variants?.[0])

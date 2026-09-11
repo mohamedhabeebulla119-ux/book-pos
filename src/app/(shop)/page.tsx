@@ -6,7 +6,7 @@ import { Header } from '@/components/ui/Header'
 import { CategoryCard } from '@/components/ui/CategoryCard'
 import { ProductCard } from '@/components/ui/ProductCard'
 import { SectionHeading } from '@/components/ui/Heading'
-import { products } from '@/data/mockData'
+import { useFeaturedProducts } from '@/lib/catalog'
 import { Button } from '@/components/ui/Button'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
@@ -37,7 +37,10 @@ export default function Home() {
     }
   }, [router])
 
-  const featuredProducts = products.filter(p => p.featured)
+  // Curated in Supabase (featured_products), resolved through the canonical
+  // catalog so duplicate ids use the authoritative deviceData definitions.
+  // Falls back to the bundled selection when Supabase is unavailable.
+  const featuredProducts = useFeaturedProducts()
 
   const categories = [
     { title: 'iPhone', subtitle: 'Pro & Standard', image: '/images/categories/iphone.jpg', href: '/categories/iphone' },

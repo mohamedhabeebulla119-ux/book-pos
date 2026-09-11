@@ -5,20 +5,17 @@ import { ProductCard } from '@/components/ui/ProductCard'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { PageHeading } from '@/components/ui/Heading'
 import { useWishlist } from '@/context/WishlistContext'
-import { products } from '@/data/mockData'
-import { allDevices } from '@/data/deviceData'
+import { useCatalogProducts } from '@/lib/catalog'
 import { Heart } from 'lucide-react'
-
-const combinedProducts = [
-  ...allDevices,
-  ...products.filter(p => !allDevices.some(d => d.id === p.id))
-]
+import type { Product } from '@/types'
 
 export default function WishlistPage() {
   const { wishlist } = useWishlist()
+  // Same wishlist ids as before — the accessor preserves every product slug.
+  const combinedProducts = useCatalogProducts()
   const items = wishlist
     .map(id => combinedProducts.find(p => p.id === id))
-    .filter((p): p is (typeof combinedProducts)[number] => !!p)
+    .filter((p): p is Product => !!p)
 
   return (
     <div className="flex flex-col min-h-screen pb-8">

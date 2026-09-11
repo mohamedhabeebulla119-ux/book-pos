@@ -2,8 +2,7 @@
 
 import { use, useState, useMemo } from 'react'
 import { Header } from '@/components/ui/Header'
-import { products } from '@/data/mockData'
-import { iphoneProducts, ipadProducts, macProducts } from '@/data/deviceData'
+import { useCatalogProducts } from '@/lib/catalog'
 import { categorySlugToName, categoryHeroCopy } from '@/data/categoryMeta'
 import { Product } from '@/types'
 import { Filter, SlidersHorizontal, ChevronDown } from 'lucide-react'
@@ -40,15 +39,21 @@ export default function CategoryProductsPage({ params }: { params: Promise<{ cat
 
   const filters = filterOptions[categoryParam] || filterOptions['default']
 
-  // Pick the right product pool
-  const baseProducts = useMemo<Product[]>(() => {
-    if (categoryParam === 'iphone') return iphoneProducts
-    if (categoryParam === 'ipad') return ipadProducts
-    if (categoryParam === 'mac') return macProducts
-    return products.filter(p =>
-      p.category.toLowerCase() === categoryName.toLowerCase()
-    )
-  }, [categoryParam, categoryName])
+  const catalogProducts = useCatalogProducts()
+
+  // Pick the right product pool.
+  //
+  // This used to special-case iphone/ipad/mac to the deviceData arrays and fall
+  // back to mockData for everything else. Filtering the unified catalog by
+  // category is equivalent for all seven slugs — deviceData is spread first, so
+  // it still wins the two duplicate ids — and it means every category now picks
+  // up live price, stock and publication state from the same accessor.
+  const baseProducts = useMemo<Product[]>(
+    () => catalogProducts.filter(
+      p => p.category.toLowerCase() === categoryName.toLowerCase()
+    ),
+    [catalogProducts, categoryName],
+  )
 
   // Filter
   const filteredProducts = useMemo(() => {

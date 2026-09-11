@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "./database.types";
 
 /**
  * Browser-safe Supabase client.
@@ -19,7 +20,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabasePublishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
-let client: SupabaseClient | null = null;
+let client: SupabaseClient<Database> | null = null;
 
 /**
  * Returns the shared Supabase client, creating it on first use.
@@ -27,7 +28,7 @@ let client: SupabaseClient | null = null;
  * Creation is lazy so that nothing is instantiated while pages are being
  * prerendered during `next build`.
  */
-export function getSupabaseClient(): SupabaseClient {
+export function getSupabaseClient(): SupabaseClient<Database> {
   if (client) return client;
 
   if (!supabaseUrl || !supabasePublishableKey) {
@@ -38,7 +39,7 @@ export function getSupabaseClient(): SupabaseClient {
     );
   }
 
-  client = createClient(supabaseUrl, supabasePublishableKey);
+  client = createClient<Database>(supabaseUrl, supabasePublishableKey);
   return client;
 }
 
