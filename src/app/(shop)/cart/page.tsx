@@ -36,10 +36,12 @@ function fillsFrame(src?: string): boolean {
 }
 
 function CartItemCard({ item }: { item: CartItem }) {
-  const { removeFromCart, updateQuantity } = useCart()
+  const { removeFromCart, updateQuantity, unitPrice: resolveUnitPrice } = useCart()
   const { isWishlisted, toggleWishlist } = useWishlist()
 
-  const unitPrice = item.variant?.price ?? item.product.price
+  // Resolved from the live catalog, not from the copy frozen into localStorage
+  // when the line was added, so the cart agrees with the card and the detail page.
+  const unitPrice = resolveUnitPrice(item)
   const lineTotal = unitPrice * item.quantity
   const selection = describeSelection(item)
   const wishlisted = isWishlisted(item.product.id)

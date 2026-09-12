@@ -37,6 +37,42 @@ let snapshot: CatalogSnapshot = STATIC_SNAPSHOT
 const listeners = new Set<() => void>()
 let loadStarted = false
 
+/**
+ * Bumped on every load. A reload triggered by a sign-in must win even if the
+ * anonymous request it replaces is still in flight and resolves later —
+ * otherwise a VIP customer would briefly be shown retail prices that then
+ * stuck, which is exactly the bug this counter exists to prevent.
+ */
+let generation = 0
+
+/** True while a live query is outstanding, so revalidation never stacks up. */
+let inFlight = false
+
+/** When the last load finished, successfully or not. 0 = never loaded. */
+let lastLoadedAt = 0
+
+/**
+ * How long a loaded snapshot is trusted, by what prompted the check.
+ *
+ * Prices are set by an administrator at arbitrary times and there is no server
+ * to push the change, so the catalog has to re-ask. These two windows are the
+ * cheapest honest approximation of "the customer might be looking at a stale
+ * price now":
+ *
+ *   ROUTE  - moving between screens inside the app. Generous, because in-app
+ *            navigation is frequent and the price is unlikely to have moved.
+ *   RETURN - coming back to a backgrounded app or a blurred tab. Short,
+ *            because being away is exactly when a price change is likely to
+ *            have happened, and it is the moment the customer re-reads the
+ *            screen. This is what makes an admin edit visible on return
+ *            without reloading the page.
+ *
+ * Neither is a poll: nothing fires on a timer, and a customer sitting still on
+ * one screen issues no requests at all.
+ */
+const ROUTE_STALE_MS = 60_000
+const RETURN_STALE_MS = 3_000
+
 function emit() {
   for (const listener of listeners) listener()
 }
@@ -47,8 +83,11 @@ function setSnapshot(next: CatalogSnapshot) {
 }
 
 async function loadLiveCatalog() {
+  const ticket = ++generation
+  inFlight = true
   try {
     const live = await fetchLiveCatalog()
+    if (ticket !== generation) return
     const products = applyLiveCatalog(getStaticProducts(), live)
 
     // A live response that somehow yields nothing is treated as a failure:
@@ -69,25 +108,101 @@ async function loadLiveCatalog() {
       error: null,
     })
   } catch (err) {
+    if (ticket !== generation) return
     setSnapshot({
       ...STATIC_SNAPSHOT,
       status: 'fallback',
       error: err instanceof Error ? err.message : 'Live catalog unavailable.',
     })
+  } finally {
+    // Only the newest attempt owns this state; a superseded one must not clear
+    // the flag while its replacement is still running. The timestamp is stamped
+    // even on failure, so an unreachable database is retried on the next
+    // trigger rather than on every render.
+    if (ticket === generation) {
+      inFlight = false
+      lastLoadedAt = Date.now()
+    }
   }
+}
+
+/**
+ * Re-reads the catalog only if the current snapshot has aged past `maxAgeMs`.
+ *
+ * The generation counter still decides who wins, so a revalidation that starts
+ * before a sign-in cannot overwrite the tier-correct data that follows it.
+ */
+function revalidateIfStale(maxAgeMs: number): void {
+  if (!loadStarted || inFlight) return
+  if (Date.now() - lastLoadedAt < maxAgeMs) return
+  void loadLiveCatalog()
+}
+
+/** Returning to the app is the strongest hint that a price may have moved. */
+function handleReturn(): void {
+  if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
+  revalidateIfStale(RETURN_STALE_MS)
+}
+
+let revalidationBound = false
+
+function bindRevalidation(): void {
+  if (revalidationBound || typeof window === 'undefined') return
+  revalidationBound = true
+  // focus covers desktop tab switching; visibilitychange covers a Capacitor
+  // app being resumed from the background, where focus alone does not fire.
+  window.addEventListener('focus', handleReturn)
+  document.addEventListener('visibilitychange', handleReturn)
+}
+
+function unbindRevalidation(): void {
+  if (!revalidationBound || typeof window === 'undefined') return
+  revalidationBound = false
+  window.removeEventListener('focus', handleReturn)
+  document.removeEventListener('visibilitychange', handleReturn)
+}
+
+/**
+ * Re-runs the live query against the CURRENT session.
+ *
+ * Prices are resolved per-caller by my_effective_prices, whose tier comes from
+ * private.current_customer_type() and therefore from auth.uid() at query time.
+ * Because the query above fires exactly once, a customer who signs in after
+ * first paint would otherwise keep the anonymous retail prices until a full
+ * page reload — on a Capacitor build, until the app was killed and relaunched.
+ *
+ * Called from the customer auth context on every sign-in and sign-out. A no-op
+ * before the first subscriber, because that subscriber's own load will already
+ * carry the new session.
+ *
+ * Unconditional by design: it ignores the staleness windows and any request in
+ * flight, because the identity changed and whatever is loaded or loading is
+ * answering for the wrong person.
+ */
+export function reloadCatalog(): void {
+  if (!loadStarted) return
+  void loadLiveCatalog()
 }
 
 function subscribe(listener: () => void): () => void {
   listeners.add(listener)
+  bindRevalidation()
 
-  // Fire the live query once, on the first component that needs the catalog.
   if (!loadStarted) {
+    // Fire the live query once, on the first component that needs the catalog.
     loadStarted = true
     void loadLiveCatalog()
+  } else {
+    // A later subscriber means a new screen is being rendered. Previously this
+    // branch did nothing, which is why an admin price change never reached a
+    // customer whose app was already open: the catalog was fetched once per
+    // app launch and then kept forever.
+    revalidateIfStale(ROUTE_STALE_MS)
   }
 
   return () => {
     listeners.delete(listener)
+    if (listeners.size === 0) unbindRevalidation()
   }
 }
 

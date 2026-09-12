@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { ThemeProvider } from "@/context/ThemeContext";
+import { CustomerAuthProvider } from "@/context/CustomerAuthContext";
 import { CartProvider } from "@/context/CartContext";
 import { WishlistProvider } from "@/context/WishlistContext";
 import { AppShell } from "@/components/ui/AppShell";
@@ -29,11 +30,16 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className="antialiased selection:bg-primary/30">
         <ThemeProvider>
-          <CartProvider>
-            <WishlistProvider>
-              <AppShell>{children}</AppShell>
-            </WishlistProvider>
-          </CartProvider>
+          {/* Outside Cart/Wishlist so a sign-in or sign-out re-reads prices
+              before anything that renders them. Cart and wishlist stay in
+              localStorage and are untouched by this. */}
+          <CustomerAuthProvider>
+            <CartProvider>
+              <WishlistProvider>
+                <AppShell>{children}</AppShell>
+              </WishlistProvider>
+            </CartProvider>
+          </CustomerAuthProvider>
         </ThemeProvider>
       </body>
     </html>

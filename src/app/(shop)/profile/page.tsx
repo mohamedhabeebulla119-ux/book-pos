@@ -1,18 +1,37 @@
 "use client"
 
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Header } from '@/components/ui/Header'
 import { Avatar } from '@/components/ui/Avatar'
+import { Button } from '@/components/ui/Button'
 import { useTheme } from '@/context/ThemeContext'
 import { useWishlist } from '@/context/WishlistContext'
-import { Moon, Sun, ChevronRight, Package, CreditCard, Settings, HelpCircle, LogOut, Heart } from 'lucide-react'
-
-const PROFILE_NAME = 'John Doe'
-const PROFILE_EMAIL = 'john.doe@example.com'
+import { useCustomerAuth } from '@/context/CustomerAuthContext'
+import { CUSTOMER_TYPE_LABEL } from '@/lib/customer/profile'
+import { clearExperience } from '@/utils/experience'
+import {
+  Moon, Sun, ChevronRight, Package, CreditCard, Settings, HelpCircle, LogOut, Heart,
+  Crown, User, LogIn, Store, Repeat, LoaderCircle,
+} from 'lucide-react'
 
 export default function ProfilePage() {
+  const router = useRouter()
   const { theme, toggleTheme } = useTheme()
   const { wishlist } = useWishlist()
+  // Identity comes from the Supabase session and the customer's own profile row
+  // under "profiles read own" — never from a constant in this file.
+  const { status, email, profile, customerType, vipExpired, signOut } = useCustomerAuth()
+
+  const signedIn = status === 'signed-in'
+  const displayName = profile?.full_name?.trim() || 'Your account'
+  const displayEmail = profile?.email || email
+
+  /** Returns to the entry screen so the customer can pick the other experience. */
+  function switchExperience() {
+    clearExperience()
+    router.push('/welcome')
+  }
 
   const CHIP = 'bg-well-strong border border-mint-deep text-primary'
 
@@ -22,6 +41,15 @@ export default function ProfilePage() {
     { icon: CreditCard, label: 'Payment Methods', description: 'Manage your saved cards', chip: CHIP },
     { icon: Settings, label: 'Account Settings', description: 'Personal details and security', chip: CHIP },
     { icon: HelpCircle, label: 'Help & Support', description: 'FAQ and contact information', chip: CHIP },
+    {
+      icon: Store,
+      label: 'Wholesale',
+      description: customerType === 'wholesale_vip'
+        ? 'Wholesale pricing is active'
+        : 'Apply for business pricing',
+      chip: CHIP,
+      href: '/wholesale',
+    },
   ]
 
   return (
@@ -30,13 +58,55 @@ export default function ProfilePage() {
 
       <main className="px-4 py-6">
         {/* Profile Header */}
-        <div className="flex items-center gap-4 mb-6 bg-surface border border-mint/80 dark:border-border rounded-[26px] p-4 shadow-card">
-          <Avatar name={PROFILE_NAME} size={62} />
-          <div className="min-w-0">
-            <h1 className="text-xl font-bold tracking-tight truncate">{PROFILE_NAME}</h1>
-            <p className="text-muted-foreground text-[13px] truncate">{PROFILE_EMAIL}</p>
+        {status === 'loading' ? (
+          <div className="flex items-center justify-center gap-2.5 mb-6 bg-surface border border-mint/80 dark:border-border rounded-[26px] p-6 shadow-card text-sm text-muted-foreground">
+            <LoaderCircle size={17} className="animate-spin motion-reduce:animate-none" /> Loading your account…
           </div>
-        </div>
+        ) : signedIn ? (
+          <div className="mb-6 bg-surface border border-mint/80 dark:border-border rounded-[26px] p-4 shadow-card">
+            <div className="flex items-center gap-4">
+              <Avatar name={displayName} size={62} />
+              <div className="min-w-0">
+                <h1 className="text-xl font-bold tracking-tight truncate">{displayName}</h1>
+                {displayEmail && (
+                  <p className="text-muted-foreground text-[13px] truncate">{displayEmail}</p>
+                )}
+              </div>
+            </div>
+            {/* The tier the DATABASE resolved, not the experience chosen on the
+                entry screen. An expired VIP grant is shown as retail, because
+                that is what the customer is actually charged. */}
+            <div className="mt-3.5 flex flex-wrap items-center gap-2">
+              <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap ${
+                customerType === 'wholesale_vip'
+                  ? 'border-mint-deep bg-primary-soft text-primary'
+                  : 'border-border bg-muted text-muted-foreground'
+              }`}>
+                {customerType === 'wholesale_vip' ? <Crown size={12} /> : <User size={12} />}
+                {CUSTOMER_TYPE_LABEL[customerType]}
+              </span>
+              {vipExpired && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-600 dark:text-amber-400 whitespace-nowrap">
+                  Wholesale pricing expired
+                </span>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="mb-6 bg-surface border border-mint/80 dark:border-border rounded-[26px] p-5 shadow-card text-center">
+            <span className="mx-auto mb-3.5 flex h-13 w-13 items-center justify-center rounded-full bg-well-strong border border-mint-deep text-primary">
+              <LogIn size={23} strokeWidth={1.8} />
+            </span>
+            <h1 className="text-lg font-bold tracking-tight mb-1.5">You are browsing as a guest</h1>
+            <p className="mx-auto mb-4 max-w-xs text-[13px] leading-relaxed text-muted-foreground">
+              Sign in to see your orders and the pricing set for your account.
+            </p>
+            <div className="flex flex-col gap-2.5">
+              <Link href="/account/sign-in"><Button fullWidth>Sign in</Button></Link>
+              <Link href="/account/sign-up"><Button fullWidth variant="secondary">Create an account</Button></Link>
+            </div>
+          </div>
+        )}
 
         {/* Theme Toggle */}
         <div className="bg-surface rounded-[26px] border border-mint/80 dark:border-border p-4 mb-4 flex items-center justify-between shadow-card">
@@ -97,11 +167,27 @@ export default function ProfilePage() {
           })}
         </div>
 
-        {/* Logout */}
-        <button className="w-full flex items-center justify-center gap-2 p-4 text-red-500 font-semibold bg-red-500/8 border border-red-500/20 hover:bg-red-500/15 active:scale-[0.98] rounded-[26px] transition-all duration-300 min-h-[44px]">
-          <LogOut size={20} />
-          Sign Out
+        {/* Switch experience — clears only the local preference. It has never
+            had any bearing on the customer's tier, so nothing about pricing
+            changes here. */}
+        <button
+          onClick={switchExperience}
+          className="w-full flex items-center justify-center gap-2 p-4 mb-4 font-semibold text-primary bg-primary-soft border border-mint-deep hover:bg-mint active:scale-[0.98] rounded-[26px] transition-all duration-300 min-h-[44px]"
+        >
+          <Repeat size={19} />
+          Switch shopping experience
         </button>
+
+        {/* Sign out */}
+        {signedIn && (
+          <button
+            onClick={() => void signOut()}
+            className="w-full flex items-center justify-center gap-2 p-4 text-red-500 font-semibold bg-red-500/8 border border-red-500/20 hover:bg-red-500/15 active:scale-[0.98] rounded-[26px] transition-all duration-300 min-h-[44px]"
+          >
+            <LogOut size={20} />
+            Sign Out
+          </button>
+        )}
       </main>
     </div>
   )

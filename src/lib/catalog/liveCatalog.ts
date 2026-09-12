@@ -1,5 +1,6 @@
 import type { Product, ProductVariant, ProductCategory, ProductSubcategory, WarrantyInfo } from '@/types'
 import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase/client'
+import { resolveCustomerType } from '@/lib/customer/profile'
 import type { ResolvedTier } from './types'
 
 /**
@@ -30,6 +31,44 @@ interface LivePriceRow {
   variant_id: string | null
   tier_code: string
   price_cents: number
+}
+
+/**
+ * Both tiers for one product or variant, kept apart so the resolver can choose.
+ *
+ * Previously the fetch collapsed every returned row into a single number and
+ * trusted my_effective_prices to have handed back exactly one row per
+ * product/variant. That trust holds only for a caller whose RLS limits them to
+ * one tier. A staff, admin or owner account reads EVERY tier through the
+ * "product_prices staff read all" policy, and the view's
+ * `order by (tier_code = 'wholesale_vip') desc` then deliberately prefers the
+ * VIP row — so anyone with a role saw VIP prices on the storefront regardless
+ * of their own customer_type. Keeping the tiers separate is what makes the
+ * choice explicit instead of incidental.
+ */
+export interface TierPrices {
+  retail?: number
+  wholesale_vip?: number
+}
+
+/**
+ * THE customer-facing price rule. Every price the storefront shows comes
+ * through here.
+ *
+ *   wholesale_vip -> the VIP price, falling back to retail when none is set
+ *   retail        -> the retail price, never the VIP one
+ *
+ * The tier argument is the customer's own profiles.customer_type. It is never
+ * inferred from which rows came back, from the /wholesale route, or from the
+ * localStorage experience preference.
+ */
+export function resolveTierPrice(
+  prices: TierPrices | undefined,
+  tier: ResolvedTier,
+): number | undefined {
+  if (!prices) return undefined
+  if (tier === 'wholesale_vip') return prices.wholesale_vip ?? prices.retail
+  return prices.retail
 }
 
 /** Editable product fields, as stored. */
@@ -65,9 +104,10 @@ export interface LiveCatalogData {
   variants: Map<string, VariantOverlay[]>
   specs: Map<string, Record<string, string>>
   images: Map<string, string[]>
-  productPrice: Map<string, number>
-  /** `${product_id}:${legacy_key}` -> price in rupees */
-  variantPrice: Map<string, number>
+  /** product_id -> both tiers, in rupees. Resolved by resolveTierPrice(). */
+  productPrice: Map<string, TierPrices>
+  /** `${product_id}:${legacy_key}` -> both tiers, in rupees */
+  variantPrice: Map<string, TierPrices>
   /**
    * Curated featured ids in display order, or null when the merchandising
    * query failed or returned nothing — in which case the bundled selection is
@@ -75,11 +115,47 @@ export interface LiveCatalogData {
    * cost the customer live prices.
    */
   featuredIds: string[] | null
-  tier: ResolvedTier | null
+  /**
+   * The tier this catalog was resolved AT, read from the caller's own profile —
+   * not guessed from the price rows that happened to come back.
+   */
+  tier: ResolvedTier
 }
 
 function isTier(value: string): value is ResolvedTier {
   return value === 'retail' || value === 'wholesale_vip'
+}
+
+/**
+ * The caller's own pricing tier, read from public.profiles.
+ *
+ * profiles.customer_type is the single authority for pricing, so it is asked
+ * directly rather than inferred from the price rows. An anonymous visitor has
+ * no profile and resolves to retail, exactly as
+ * private.current_customer_type() does inside the database.
+ *
+ * Fails CLOSED: if the session or the profile cannot be read, the caller is
+ * treated as retail. Showing a VIP price to someone we could not confirm is a
+ * worse failure than showing a retail price to a VIP, who will see the correct
+ * price on the next load.
+ */
+async function fetchCallerTier(): Promise<ResolvedTier> {
+  const supabase = getSupabaseClient()
+
+  const { data: { session } } = await supabase.auth.getSession()
+  const userId = session?.user?.id
+  if (!userId) return 'retail'
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('customer_type, vip_expires_at')
+    .eq('id', userId)
+    .maybeSingle()
+
+  if (error || !data) return 'retail'
+
+  // Same rule the profile page and the auth context use — written once.
+  return resolveCustomerType(data)
 }
 
 /**
@@ -93,8 +169,9 @@ export async function fetchLiveCatalog(): Promise<LiveCatalogData> {
 
   const supabase = getSupabaseClient()
 
-  const [productsResult, variantsResult, specsResult, imagesResult, pricesResult, featuredResult] =
+  const [tier, productsResult, variantsResult, specsResult, imagesResult, pricesResult, featuredResult] =
     await Promise.all([
+      fetchCallerTier(),
       supabase
         .from('products')
         .select(
@@ -167,24 +244,38 @@ export async function fetchLiveCatalog(): Promise<LiveCatalogData> {
     images.set(row.product_id, list)
   }
 
-  const productPrice = new Map<string, number>()
-  const variantPrice = new Map<string, number>()
-  let tier: ResolvedTier | null = null
+  const productPrice = new Map<string, TierPrices>()
+  const variantPrice = new Map<string, TierPrices>()
+
+  /** Records a row under its OWN tier, so neither tier can overwrite the other. */
+  function record(map: Map<string, TierPrices>, key: string, row: LivePriceRow) {
+    if (!isTier(row.tier_code)) return
+    const entry = map.get(key) ?? {}
+    entry[row.tier_code] = centsToRupees(row.price_cents)
+    map.set(key, entry)
+  }
 
   for (const row of (pricesResult.data ?? []) as LivePriceRow[]) {
-    if (!tier && isTier(row.tier_code)) tier = row.tier_code
-
-    const rupees = centsToRupees(row.price_cents)
-
     if (row.variant_id === null) {
-      productPrice.set(row.product_id, rupees)
+      record(productPrice, row.product_id, row)
       continue
     }
 
     const mapped = variantKeyById.get(row.variant_id)
     if (mapped) {
-      variantPrice.set(`${mapped.productId}:${mapped.legacyKey}`, rupees)
+      record(variantPrice, `${mapped.productId}:${mapped.legacyKey}`, row)
     }
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    // Diagnostic only, and never in the shipped APK: shows which tier the
+    // storefront resolved and whether VIP rows were even visible to this caller.
+    const vipRows = (pricesResult.data ?? []).filter(
+      (row) => (row as LivePriceRow).tier_code === 'wholesale_vip',
+    ).length
+    console.info(
+      `[catalog] tier=${tier} priceRows=${pricesResult.data?.length ?? 0} vipRowsVisible=${vipRows}`,
+    )
   }
 
   const featuredRows = featuredResult.error ? null : featuredResult.data
@@ -226,7 +317,9 @@ export function applyLiveCatalog(
     if (!live.activeIds.has(product.id)) continue
 
     const overlay = live.product.get(product.id)
-    const livePrice = live.productPrice.get(product.id)
+    // Resolved against the customer's OWN tier, never against whichever row
+    // the database happened to return first.
+    const livePrice = resolveTierPrice(live.productPrice.get(product.id), live.tier)
 
     // Variants come from the database when it has them, keyed back to the
     // bundled 'v1'/'v2' ids via legacy_key so cart lines stay resolvable.
@@ -242,7 +335,7 @@ export function applyLiveCatalog(
         // own keeps showing a stale number shipped in the APK even though the
         // database has a newer one. Bundled values are the last resort only.
         const price =
-          live.variantPrice.get(`${product.id}:${lv.legacyKey}`) ??
+          resolveTierPrice(live.variantPrice.get(`${product.id}:${lv.legacyKey}`), live.tier) ??
           livePrice ??
           bundled?.price ??
           product.price
@@ -257,7 +350,7 @@ export function applyLiveCatalog(
       })
     } else if (product.variants && product.variants.length > 0) {
       variants = product.variants.map((variant) => {
-        const price = live.variantPrice.get(`${product.id}:${variant.id}`)
+        const price = resolveTierPrice(live.variantPrice.get(`${product.id}:${variant.id}`), live.tier)
         return price === undefined ? variant : { ...variant, price }
       })
     }

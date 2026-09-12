@@ -12,6 +12,7 @@ import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { ArrowRight, Search, Wrench, Smartphone, ShieldCheck, Zap, Headphones, ShoppingBag, Truck } from 'lucide-react'
 import { hasCompletedOnboarding } from '@/utils/onboarding'
+import { getExperience } from '@/utils/experience'
 
 const EASE = [0.22, 1, 0.36, 1] as const
 
@@ -29,12 +30,19 @@ export default function Home() {
   const router = useRouter()
   const [readyToRender, setReadyToRender] = useState(false)
 
+  // Entry gates, in order: onboarding, then the experience choice, then the
+  // store. Both flags live in localStorage and are read here rather than during
+  // render, so the exported HTML never bakes in "already chosen".
   useEffect(() => {
-    if (hasCompletedOnboarding()) {
-      setReadyToRender(true)
-    } else {
+    if (!hasCompletedOnboarding()) {
       router.replace('/onboarding')
+      return
     }
+    if (getExperience() === null) {
+      router.replace('/welcome')
+      return
+    }
+    setReadyToRender(true)
   }, [router])
 
   // Curated in Supabase (featured_products), resolved through the canonical

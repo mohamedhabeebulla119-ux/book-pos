@@ -1091,6 +1091,72 @@ export type Database = {
           },
         ]
       }
+      wholesale_access_requests: {
+        Row: {
+          business_name: string
+          business_registration: string | null
+          business_type: string | null
+          contact_phone: string | null
+          created_at: string
+          id: string
+          message: string | null
+          monthly_volume: string | null
+          profile_id: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          business_name: string
+          business_registration?: string | null
+          business_type?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          message?: string | null
+          monthly_volume?: string | null
+          profile_id: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          business_name?: string
+          business_registration?: string | null
+          business_type?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          message?: string | null
+          monthly_volume?: string | null
+          profile_id?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wholesale_access_requests_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wholesale_access_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wishlist_items: {
         Row: {
           created_at: string
@@ -1209,6 +1275,35 @@ export type Database = {
       }
     }
     Functions: {
+      admin_review_wholesale_request: {
+        Args: {
+          p_note?: string
+          p_request_id: string
+          p_status: string
+        }
+        Returns: {
+          business_name: string
+          business_registration: string | null
+          business_type: string | null
+          contact_phone: string | null
+          created_at: string
+          id: string
+          message: string | null
+          monthly_volume: string | null
+          profile_id: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "wholesale_access_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       admin_set_customer_type: {
         Args: {
           p_customer_type: string
