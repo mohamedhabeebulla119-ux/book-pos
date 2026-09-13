@@ -1,10 +1,12 @@
 "use client"
 
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { motion, useReducedMotion } from 'framer-motion'
-import { ShoppingBag, Store, ArrowRight, Check, ShieldCheck } from 'lucide-react'
+import { ShoppingBag, Store, ArrowRight, Check, ShieldCheck, FlaskConical, LogIn } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { setExperience, type ShoppingExperience } from '@/utils/experience'
+import { startGuestSession, type GuestExperience } from '@/lib/auth/guestMode'
 
 /**
  * Customer entry: "How would you like to continue?"
@@ -64,6 +66,20 @@ export default function WelcomePage() {
   function choose(option: ExperienceOption) {
     setExperience(option.id)
     router.replace(option.destination)
+  }
+
+  /**
+   * Starts a TEST identity — never a session.
+   *
+   * This mints no token, writes nothing to Supabase and grants no tier. It sets
+   * a flag in sessionStorage saying which screens to show, and the banner that
+   * appears says so on every page. Pricing continues to be resolved by the
+   * database for an anonymous caller, which is retail and only retail.
+   */
+  function startGuest(experience: GuestExperience) {
+    startGuestSession(experience)
+    setExperience(experience)
+    router.replace(experience === 'wholesale' ? '/wholesale' : '/')
   }
 
   return (
@@ -143,6 +159,73 @@ export default function WelcomePage() {
           )
         })}
       </div>
+
+      <motion.div
+        initial={shouldReduceMotion ? false : { opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5, ease: EASE, delay: 0.3 }}
+        className="mt-6 text-center"
+      >
+        <Link
+          href="/account/sign-in"
+          className="focus-ring inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-[13.5px] font-semibold text-primary transition-colors hover:bg-primary-soft"
+        >
+          <LogIn size={16} />
+          Already have an account? Sign in
+        </Link>
+      </motion.div>
+
+      {/* TESTING MODE — only in a build made with
+          NEXT_PUBLIC_ENABLE_GUEST_MODE=true.
+
+          The comparison is written out here rather than using the
+          GUEST_MODE_ENABLED constant on purpose. Next.js substitutes the literal
+          for process.env.NEXT_PUBLIC_… during the build, so with the flag off
+          this reads `'false' === 'true' && …` and the minifier DELETES the whole
+          block: in a production bundle the guest buttons do not exist to be
+          found, rather than existing and being switched off. Importing the
+          constant instead leaves the markup in the bundle, because the bundler
+          will not fold a value across a module boundary. */}
+      {process.env.NEXT_PUBLIC_ENABLE_GUEST_MODE === 'true' && (
+        <motion.section
+          initial={shouldReduceMotion ? false : { opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: EASE, delay: 0.36 }}
+          aria-label="Testing mode"
+          className="mt-6 rounded-[24px] border-2 border-dashed border-amber-500/45 bg-amber-500/8 p-4"
+        >
+          <div className="mb-2.5 flex items-center gap-2">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-400 text-amber-950">
+              <FlaskConical size={14} strokeWidth={2.4} />
+            </span>
+            <h2 className="text-[11.5px] font-bold uppercase tracking-[0.14em] text-amber-700 dark:text-amber-400">
+              Testing mode
+            </h2>
+          </div>
+
+          <p className="mb-3.5 text-[12.5px] leading-relaxed text-muted-foreground">
+            SMS verification is not configured yet. These open the screens with a temporary guest
+            identity — no account, no session and no wholesale pricing.
+          </p>
+
+          <div className="flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={() => startGuest('retail')}
+              className="focus-ring flex h-11 items-center justify-center gap-2 rounded-full border border-amber-500/45 bg-card text-[13.5px] font-semibold text-foreground transition-colors hover:bg-amber-500/10"
+            >
+              Continue as Retail Guest
+            </button>
+            <button
+              type="button"
+              onClick={() => startGuest('wholesale')}
+              className="focus-ring flex h-11 items-center justify-center gap-2 rounded-full border border-amber-500/45 bg-card text-[13.5px] font-semibold text-foreground transition-colors hover:bg-amber-500/10"
+            >
+              Continue as Wholesale Guest
+            </button>
+          </div>
+        </motion.section>
+      )}
 
       <motion.p
         initial={shouldReduceMotion ? false : { opacity: 0 }}

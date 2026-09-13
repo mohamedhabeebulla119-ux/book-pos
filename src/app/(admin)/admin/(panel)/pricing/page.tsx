@@ -27,7 +27,10 @@ export default function AdminPricingPage() {
   const [query, setQuery] = useState('')
   const [categoryId, setCategoryId] = useState('all')
   const [scope, setScope] = useState<Scope>('published')
-  const [editing, setEditing] = useState<PricingTarget | null>(null)
+  // The open editor is identified by KEY, never held as a snapshot of the row.
+  // `editing` is re-derived from `targets` on every render, so the refresh that
+  // follows a save flows straight into the open drawer.
+  const [editingKey, setEditingKey] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
 
   const fetchAll = useCallback(() => loadPricing(), [])
@@ -75,6 +78,13 @@ export default function AdminPricingPage() {
       )
     })
   }, [targets, query, categoryId, scope])
+
+  // Always the CURRENT row for that key, so a saved price reaches the drawer
+  // without closing it and without reloading the page.
+  const editing = useMemo(
+    () => (editingKey === null ? null : (targets.find((t) => t.key === editingKey) ?? null)),
+    [targets, editingKey],
+  )
 
   const vipCount = targets.filter((t) => t.vipCents !== null).length
   const pricedCount = targets.filter((t) => t.retailCents !== null).length
@@ -211,7 +221,7 @@ export default function AdminPricingPage() {
                         : <span className="font-semibold text-primary">{formatPrice(centsToRupees(t.vipCents))}</span>}
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
-                      <Button size="sm" variant="secondary" onClick={() => setEditing(t)}>
+                      <Button size="sm" variant="secondary" onClick={() => setEditingKey(t.key)}>
                         {canEdit ? 'Edit' : 'View'}
                       </Button>
                     </td>
@@ -236,7 +246,7 @@ export default function AdminPricingPage() {
           key={editing.key}
           target={editing}
           canEdit={canEdit}
-          onClose={() => setEditing(null)}
+          onClose={() => setEditingKey(null)}
           onSaved={() => { setToast('Price saved. Previous price kept in history.'); refresh() }}
         />
       )}

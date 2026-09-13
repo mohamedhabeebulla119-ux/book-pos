@@ -3,15 +3,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Package, Search, X, LoaderCircle, AlertCircle, Check,
-  Eye, EyeOff, Lock, PackageSearch,
+  Eye, EyeOff, Lock, PackageSearch, Plus, Tags, FolderTree,
 } from 'lucide-react'
+import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
 import { AdminPageHeading } from '@/components/admin/AdminPage'
 import { ProductEditor } from '@/components/admin/products/ProductEditor'
+import { ProductCreator } from '@/components/admin/products/ProductCreator'
 import { useAdminAuth } from '@/context/AdminAuthContext'
 import {
   listCategories, listProducts, setProductActive, canEditCatalog,
+  listRetailPricedProductIds,
   type AdminProductListItem, type CategoryRow,
 } from '@/lib/admin/products'
 
@@ -25,12 +28,15 @@ export default function AdminProductsPage() {
   const [load, setLoad] = useState<Load>({ kind: 'loading' })
   const [categories, setCategories] = useState<CategoryRow[]>([])
   const [rows, setRows] = useState<AdminProductListItem[]>([])
+  /** Products with a live retail price. Anything else cannot reach a customer. */
+  const [priced, setPriced] = useState<Set<string>>(new Set())
 
   const [query, setQuery] = useState('')
   const [categoryId, setCategoryId] = useState<string>('all')
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>('all')
 
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [creating, setCreating] = useState(false)
   const [pendingId, setPendingId] = useState<string | null>(null)
   const [confirming, setConfirming] = useState<AdminProductListItem | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -39,14 +45,19 @@ export default function AdminProductsPage() {
   const fetchAll = useCallback(async () => {
     const cats = await listCategories()
     const products = await listProducts(cats)
-    return { cats, products }
+    const pricedIds = await listRetailPricedProductIds()
+    return { cats, products, pricedIds }
   }, [])
 
-  const applyData = useCallback((cats: CategoryRow[], products: AdminProductListItem[]) => {
-    setCategories(cats)
-    setRows(products)
-    setLoad({ kind: 'ready' })
-  }, [])
+  const applyData = useCallback(
+    (cats: CategoryRow[], products: AdminProductListItem[], pricedIds: Set<string>) => {
+      setCategories(cats)
+      setRows(products)
+      setPriced(pricedIds)
+      setLoad({ kind: 'ready' })
+    },
+    [],
+  )
 
   const applyError = useCallback((err: unknown) => {
     setLoad({ kind: 'error', message: err instanceof Error ? err.message : 'Could not load products.' })
@@ -54,7 +65,9 @@ export default function AdminProductsPage() {
 
   /** Used by the retry button and after a save — both event-driven, not effects. */
   const refresh = useCallback(() => {
-    fetchAll().then(({ cats, products }) => applyData(cats, products)).catch(applyError)
+    fetchAll()
+      .then(({ cats, products, pricedIds }) => applyData(cats, products, pricedIds))
+      .catch(applyError)
   }, [fetchAll, applyData, applyError])
 
   // State is written only from the promise callbacks, never synchronously in
@@ -63,7 +76,7 @@ export default function AdminProductsPage() {
   useEffect(() => {
     let cancelled = false
     fetchAll()
-      .then(({ cats, products }) => { if (!cancelled) applyData(cats, products) })
+      .then(({ cats, products, pricedIds }) => { if (!cancelled) applyData(cats, products, pricedIds) })
       .catch((err) => { if (!cancelled) applyError(err) })
     return () => { cancelled = true }
   }, [fetchAll, applyData, applyError])
@@ -116,6 +129,19 @@ export default function AdminProductsPage() {
             : 'Catalog, variants, images and specifications.'
         }
       />
+
+      <div className="mb-4 flex flex-wrap items-center gap-2.5">
+        <Button onClick={() => setCreating(true)} disabled={!canEdit || load.kind !== 'ready'}>
+          <Plus size={16} className="mr-1.5" />
+          Add product
+        </Button>
+        <Link href="/admin/categories">
+          <Button variant="secondary">
+            <FolderTree size={15} className="mr-1.5" />
+            Categories
+          </Button>
+        </Link>
+      </div>
 
       {!canEdit && load.kind === 'ready' && (
         <div className="mb-4 flex items-start gap-2.5 rounded-2xl border border-amber-500/25 bg-amber-500/10 px-4 py-3">
@@ -245,6 +271,13 @@ export default function AdminProductsPage() {
                         {row.is_active ? <Eye size={12} /> : <EyeOff size={12} />}
                         {row.is_active ? 'Published' : 'Hidden'}
                       </span>
+                      {/* Published is not the same as visible: the storefront
+                          will not list a product it cannot price. */}
+                      {row.is_active && !priced.has(row.id) && (
+                        <span className="mt-1 flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                          <Tags size={11} /> No price — not shown
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-right">
                       <div className="inline-flex items-center gap-1.5">
@@ -300,6 +333,14 @@ export default function AdminProductsPage() {
         </div>
       )}
 
+      {creating && (
+        <ProductCreator
+          categories={categories}
+          onClose={() => setCreating(false)}
+          onCreated={(message) => { setCreating(false); setToast(message); refresh() }}
+        />
+      )}
+
       {editingId && (
         <ProductEditor
           key={editingId}
@@ -308,13 +349,15 @@ export default function AdminProductsPage() {
           canEdit={canEdit}
           onClose={() => setEditingId(null)}
           onSaved={refresh}
+          onDeleted={(name) => { setEditingId(null); setToast(`${name} was deleted.`); refresh() }}
         />
       )}
 
       {load.kind === 'ready' && (
         <p className="mt-4 flex items-center gap-2 text-[12px] text-muted-foreground">
           <Package size={13} className="shrink-0" />
-          Product IDs and variant keys are fixed — they anchor static routes and saved carts.
+          Product IDs and variant keys are fixed once created — they anchor links and saved carts.
+          New products reach customers straight from the database, with no app update.
         </p>
       )}
     </>

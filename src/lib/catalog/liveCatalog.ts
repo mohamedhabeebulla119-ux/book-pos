@@ -17,8 +17,14 @@ import type { ResolvedTier } from './types'
  * price column on products and none is introduced here.
  *
  * Image FILES are not fetched — product_images.path still holds the same
- * /images/... strings that ship in the APK. Supabase Storage migration is a
- * separate phase.
+ * /images/... strings that ship in the APK, or an absolute URL. Supabase
+ * Storage migration is a separate phase.
+ *
+ * SINCE THE ADMIN CATALOG PHASE this module no longer only overlays. A product
+ * that exists in the database but not in the bundled catalog — anything an
+ * administrator created after this build was made — is BUILT from its database
+ * rows and appended to the list. That is what lets "Apple released the iPhone
+ * 18 Pro" be a data change rather than a release.
  */
 
 /** Money crosses the wire as bigint minor units. Rupees = cents / 100. */
@@ -77,6 +83,9 @@ interface ProductOverlay {
   description: string
   model: string | null
   subcategory: string
+  /** Resolved to a display name through the categories table. */
+  category_id: string
+  sort_order: number
   lifecycle_status: string | null
   is_new: boolean
   warranty_text: string | null
@@ -104,6 +113,10 @@ export interface LiveCatalogData {
   variants: Map<string, VariantOverlay[]>
   specs: Map<string, Record<string, string>>
   images: Map<string, string[]>
+  /** product_id -> compatibility labels, in stored order. */
+  compatibility: Map<string, string[]>
+  /** category_id -> display name, for products this build has never seen. */
+  categoryName: Map<string, string>
   /** product_id -> both tiers, in rupees. Resolved by resolveTierPrice(). */
   productPrice: Map<string, TierPrices>
   /** `${product_id}:${legacy_key}` -> both tiers, in rupees */
@@ -169,13 +182,16 @@ export async function fetchLiveCatalog(): Promise<LiveCatalogData> {
 
   const supabase = getSupabaseClient()
 
-  const [tier, productsResult, variantsResult, specsResult, imagesResult, pricesResult, featuredResult] =
+  const [
+    tier, productsResult, variantsResult, specsResult, imagesResult,
+    compatibilityResult, categoriesResult, pricesResult, featuredResult,
+  ] =
     await Promise.all([
       fetchCallerTier(),
       supabase
         .from('products')
         .select(
-          'id, name, description, model, subcategory, lifecycle_status, is_new, stock, rating, reviews_count, warranty_text, warranty_status, warranty_duration, warranty_months, warranty_coverage',
+          'id, name, description, model, subcategory, category_id, sort_order, lifecycle_status, is_new, stock, rating, reviews_count, warranty_text, warranty_status, warranty_duration, warranty_months, warranty_coverage',
         )
         .eq('is_active', true),
       supabase
@@ -183,7 +199,9 @@ export async function fetchLiveCatalog(): Promise<LiveCatalogData> {
         .select('id, product_id, legacy_key, name, color, color_code, storage, sort_order')
         .order('sort_order', { ascending: true }),
       supabase.from('product_specs').select('product_id, label, value, position').order('position', { ascending: true }),
-      supabase.from('product_images').select('product_id, path, position').order('position', { ascending: true }),
+      supabase.from('product_images').select('product_id, path, position, is_primary').order('position', { ascending: true }),
+      supabase.from('product_compatibility').select('product_id, label, position').order('position', { ascending: true }),
+      supabase.from('categories').select('id, name').eq('is_active', true),
       supabase.from('my_effective_prices').select('product_id, variant_id, tier_code, price_cents'),
       supabase
         .from('featured_products')
@@ -197,6 +215,8 @@ export async function fetchLiveCatalog(): Promise<LiveCatalogData> {
   if (variantsResult.error) throw variantsResult.error
   if (specsResult.error) throw specsResult.error
   if (imagesResult.error) throw imagesResult.error
+  if (compatibilityResult.error) throw compatibilityResult.error
+  if (categoriesResult.error) throw categoriesResult.error
   if (pricesResult.error) throw pricesResult.error
   // featuredResult is intentionally NOT thrown on — see featuredIds above.
 
@@ -237,12 +257,25 @@ export async function fetchLiveCatalog(): Promise<LiveCatalogData> {
     specs.set(row.product_id, record)
   }
 
+  // Ordered by position already; a row flagged is_primary is moved to the
+  // front, because the storefront treats images[0] as the card image.
   const images = new Map<string, string[]>()
   for (const row of imagesResult.data ?? []) {
     const list = images.get(row.product_id) ?? []
-    list.push(row.path)
+    if (row.is_primary) list.unshift(row.path)
+    else list.push(row.path)
     images.set(row.product_id, list)
   }
+
+  const compatibility = new Map<string, string[]>()
+  for (const row of compatibilityResult.data ?? []) {
+    const list = compatibility.get(row.product_id) ?? []
+    list.push(row.label)
+    compatibility.set(row.product_id, list)
+  }
+
+  const categoryName = new Map<string, string>()
+  for (const row of categoriesResult.data ?? []) categoryName.set(row.id, row.name)
 
   const productPrice = new Map<string, TierPrices>()
   const variantPrice = new Map<string, TierPrices>()
@@ -282,7 +315,10 @@ export async function fetchLiveCatalog(): Promise<LiveCatalogData> {
   const featuredIds =
     featuredRows && featuredRows.length > 0 ? featuredRows.map((row) => row.product_id) : null
 
-  return { activeIds, product, variants, specs, images, productPrice, variantPrice, featuredIds, tier }
+  return {
+    activeIds, product, variants, specs, images, compatibility, categoryName,
+    productPrice, variantPrice, featuredIds, tier,
+  }
 }
 
 function buildWarrantyInfo(overlay: ProductOverlay, fallback?: WarrantyInfo): WarrantyInfo | undefined {
@@ -292,6 +328,74 @@ function buildWarrantyInfo(overlay: ProductOverlay, fallback?: WarrantyInfo): Wa
     duration: overlay.warranty_duration ?? fallback?.duration ?? '',
     months: overlay.warranty_months ?? fallback?.months ?? 0,
     coverage: overlay.warranty_coverage ?? fallback?.coverage ?? '',
+  }
+}
+
+/**
+ * Builds the variant list for a product that exists only in the database.
+ *
+ * legacy_key is what the rest of the app calls a variant id — the cart composes
+ * `${product.id}-${variant.id}` from it — so a variant with no legacy_key is
+ * skipped here exactly as it is skipped when the price map is built. The admin
+ * creator always assigns one.
+ */
+function buildLiveVariants(
+  productId: string,
+  live: LiveCatalogData,
+  productPrice: number,
+): ProductVariant[] | undefined {
+  const rows = live.variants.get(productId)
+  if (!rows || rows.length === 0) return undefined
+
+  return rows.map((row) => ({
+    id: row.legacyKey,
+    name: row.name,
+    price:
+      resolveTierPrice(live.variantPrice.get(`${productId}:${row.legacyKey}`), live.tier) ??
+      productPrice,
+    color: row.color ?? undefined,
+    colorCode: row.colorCode ?? undefined,
+    storage: row.storage ?? undefined,
+  }))
+}
+
+/**
+ * Builds a complete Product from database rows alone.
+ *
+ * Used for every active product the bundled catalog has never heard of — which
+ * is to say, everything an administrator creates from now on. Nothing is
+ * invented: each field is either a stored value or an explicit empty default,
+ * and a product with no price at all is refused by the caller rather than being
+ * shown at Rs. 0.
+ */
+function buildProductFromLive(
+  id: string,
+  overlay: ProductOverlay,
+  live: LiveCatalogData,
+  price: number,
+): Product {
+  return {
+    id,
+    name: overlay.name,
+    // An active product whose category row is not visible (deactivated, say)
+    // still belongs in search and on its own page; it simply matches no
+    // category listing until the category is published again.
+    category: live.categoryName.get(overlay.category_id) ?? 'Uncategorised',
+    subcategory: overlay.subcategory as ProductSubcategory,
+    model: overlay.model ?? undefined,
+    price,
+    images: live.images.get(id) ?? [],
+    description: overlay.description,
+    specifications: live.specs.get(id) ?? {},
+    compatibility: live.compatibility.get(id),
+    stock: overlay.stock,
+    rating: overlay.rating ?? 0,
+    reviewsCount: overlay.reviews_count,
+    warranty: overlay.warranty_text ?? '',
+    warrantyInfo: buildWarrantyInfo(overlay),
+    isNew: overlay.is_new,
+    status: (overlay.lifecycle_status as Product['status']) ?? undefined,
+    variants: buildLiveVariants(id, live, price),
   }
 }
 
@@ -378,6 +482,43 @@ export function applyLiveCatalog(
       variants,
     })
   }
+
+  // ---------------------------------------------------------------------------
+  // Products that exist ONLY in the database.
+  // ---------------------------------------------------------------------------
+  // This is the half that makes the admin panel's "Add Product" real: without
+  // it the loop above could only ever emit things that were compiled into the
+  // app, so a product created after the build was invisible no matter how
+  // complete its rows were.
+  //
+  // A product is included when it is active AND a price resolves for it. The
+  // price condition is the existing house rule, not a new one — the 54 unpriced
+  // replacement parts are seeded inactive for the same reason. Showing a
+  // customer "Rs. 0" because an administrator saved a product before setting
+  // its price would be worse than not listing it yet, and the admin Products
+  // screen flags exactly which rows are held back for this reason.
+  // ---------------------------------------------------------------------------
+  const bundledIds = new Set(staticProducts.map((p) => p.id))
+  const fromDatabase: { product: Product; sortOrder: number }[] = []
+
+  for (const [id, overlay] of live.product) {
+    if (bundledIds.has(id)) continue
+
+    const productPrice = resolveTierPrice(live.productPrice.get(id), live.tier)
+    const variantPrices = (live.variants.get(id) ?? [])
+      .map((v) => resolveTierPrice(live.variantPrice.get(`${id}:${v.legacyKey}`), live.tier))
+      .filter((value): value is number => value !== undefined)
+
+    // Cheapest variant price stands in as the product price when only variants
+    // are priced, which mirrors displayPrice() on the storefront.
+    const price = productPrice ?? (variantPrices.length > 0 ? Math.min(...variantPrices) : undefined)
+    if (price === undefined) continue
+
+    fromDatabase.push({ product: buildProductFromLive(id, overlay, live, price), sortOrder: overlay.sort_order })
+  }
+
+  fromDatabase.sort((a, b) => a.sortOrder - b.sortOrder || a.product.name.localeCompare(b.product.name))
+  for (const entry of fromDatabase) merged.push(entry.product)
 
   return merged
 }

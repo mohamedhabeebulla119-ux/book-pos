@@ -9,7 +9,7 @@ import { Button } from './Button'
 import { Badge, statusTone } from './Badge'
 import { useCart } from '@/context/CartContext'
 import { useWishlist } from '@/context/WishlistContext'
-import { displayPrice, hasVariantPricing } from '@/lib/catalog'
+import { displayPrice, hasVariantPricing, productHref } from '@/lib/catalog'
 import { getCategoryTheme } from '@/lib/categoryTheme'
 import { getIphoneCardTone } from '@/lib/iphoneCardTheme'
 import { getProductSpecChips } from '@/lib/productSpecChips'
@@ -23,7 +23,9 @@ interface ProductCardProps {
 function resolveHref(product: Product): string {
   if (product.id === 'part-iphone-15-pro-display') return '/categories/replacement-parts/displays'
   if (product.id === 'part-iphone-15-pro-battery') return '/categories/replacement-parts/batteries'
-  return `/product/${product.id}`
+  // Bundled products keep their prerendered /product/<id> URL; anything an
+  // administrator added after this build is served by the runtime page.
+  return productHref(product.id)
 }
 
 export function ProductCard({ product, featured = false }: ProductCardProps) {
@@ -128,7 +130,7 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
             <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[70%] h-[70%] rounded-full blur-2xl ${iphoneTone.glow}`} aria-hidden="true" />
           )}
 
-          {!imgError ? (
+          {!imgError && product.images[0] ? (
             <img
               ref={imgCallbackRef}
               src={product.images[0]}

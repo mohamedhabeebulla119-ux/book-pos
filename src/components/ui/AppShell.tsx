@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation'
 import { BottomNavigation } from './BottomNavigation'
 import { AtmosphericBackground } from './AtmosphericBackground'
+import { GuestModeBanner } from './GuestModeBanner'
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -21,6 +22,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           wash. The atmospheric orbs stay in dark mode, where they give the dark
           theme its depth. */}
       <AtmosphericBackground variant="ambient" className="hidden dark:block" />
+      {/* Renders only while a Guest Test Mode session is active, which is only
+          possible in a build made with NEXT_PUBLIC_ENABLE_GUEST_MODE=true. */}
+      <GuestModeBanner />
       <main className="relative flex-1 w-full h-full overflow-x-hidden">
         {children}
       </main>

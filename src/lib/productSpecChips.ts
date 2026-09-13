@@ -1,5 +1,5 @@
 import { Cpu, Camera, Smartphone, BatteryCharging, HardDrive, Sparkles, type LucideIcon } from 'lucide-react'
-import type { Product, ProductCategory } from '@/types'
+import type { Product } from '@/types'
 
 export interface SpecChip {
   icon: LucideIcon
@@ -52,7 +52,7 @@ function iconFor(key: string): LucideIcon {
 }
 
 /** Preferred specification keys per category, tried in order until 3 clean chips are found. */
-const KEY_PRIORITY: Partial<Record<ProductCategory, string[]>> = {
+const KEY_PRIORITY: Partial<Record<string, string[]>> = {
   'iPhone': ['Chip', 'Camera', 'Display'],
   'iPad': ['Chip', 'Display', 'Storage'],
   'Mac': ['Chip', 'Memory', 'Storage'],

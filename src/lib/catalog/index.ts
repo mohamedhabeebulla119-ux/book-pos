@@ -3,3 +3,4 @@ export { useCatalog, useCatalogProducts, useCatalogProduct, useFeaturedProducts,
 export { centsToRupees } from './liveCatalog'
 export { hasVariantPricing, defaultVariant, resolveVariant, displayPrice, selectedPrice } from './price'
 export type { CatalogSnapshot, CatalogStatus, CatalogSource, ResolvedTier } from './types'
+export { productHref, isPrerenderedProduct } from './routes'

@@ -7,6 +7,18 @@ export type ProductCategory =
   | 'Replacement Parts'
   | 'Accessories'
 
+/**
+ * Any category name, including one an administrator created after this build
+ * was made.
+ *
+ * The seven names above are the ones the bundled catalog and the static
+ * /categories routes are built around, so they stay spelled out for
+ * autocompletion and for the places that special-case them. `(string & {})`
+ * widens the type without collapsing that list, which is what lets a product
+ * created in the admin panel carry a category this build has never heard of.
+ */
+export type CategoryName = ProductCategory | (string & {})
+
 export type ProductSubcategory = 
   | 'Displays'
   | 'Batteries'
@@ -53,7 +65,9 @@ export interface WarrantyInfo {
 export interface Product {
   id: string
   name: string
-  category: ProductCategory
+  /** Display name of the category. Not limited to the seven bundled ones. */
+  category: CategoryName
+  /** Constrained by the products.subcategory CHECK in the database. */
   subcategory: ProductSubcategory
   model?: string
   price: number

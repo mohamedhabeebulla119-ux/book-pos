@@ -1,10 +1,14 @@
 "use client"
 
 import { useEffect, useState } from 'react'
-import { X, LoaderCircle, Check, AlertCircle, Plus, Trash2, Lock, ImageIcon, Info } from 'lucide-react'
+import {
+  X, LoaderCircle, Check, AlertCircle, Plus, Trash2, Lock, ImageIcon, Info, Star, Ban,
+} from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import {
   loadProductDetail, updateProduct, updateVariant, saveSpecs, updateImage,
+  addVariant, deleteVariant, addImage, deleteImage, setPrimaryImage,
+  addCompatibility, deleteCompatibility, deleteProduct, countOrderLines,
   SUBCATEGORY_OPTIONS, LIFECYCLE_OPTIONS, WARRANTY_STATUS_OPTIONS,
   type AdminProductDetail, type CategoryRow, type ProductPatch,
   type VariantPatch, type SpecDraft,
@@ -22,9 +26,24 @@ interface Props {
   canEdit: boolean
   onClose: () => void
   onSaved: () => void
+  /** Called after the product row itself has been removed. */
+  onDeleted?: (name: string) => void
 }
 
-export function ProductEditor({ productId, categories, canEdit, onClose, onSaved }: Props) {
+/**
+ * A destructive action awaiting confirmation.
+ *
+ * Every delete in this editor goes through one of these rather than firing on
+ * click: a variant carries its price history, an image is a customer-facing
+ * asset, and a product is the anchor for links and saved carts.
+ */
+type Confirm =
+  | { kind: 'variant'; id: string; label: string }
+  | { kind: 'image'; id: string; label: string }
+  | { kind: 'compatibility'; id: string; label: string }
+  | { kind: 'product'; orderLines: number }
+
+export function ProductEditor({ productId, categories, canEdit, onClose, onSaved, onDeleted }: Props) {
   const [detail, setDetail] = useState<AdminProductDetail | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [save, setSave] = useState<SaveState>({ kind: 'idle' })
@@ -33,6 +52,17 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
   const [variants, setVariants] = useState<(VariantPatch & { id: string; legacyKey: string | null })[]>([])
   const [specs, setSpecs] = useState<SpecDraft[]>([])
   const [images, setImages] = useState<{ id: string; path: string; alt: string; position: number }[]>([])
+
+  // Rows added or removed here are written immediately rather than batched with
+  // "Save changes": an insert needs a database id before its fields can be
+  // edited, and a delete deserves its own confirmation rather than riding along
+  // with unrelated edits.
+  const [newVariantName, setNewVariantName] = useState('')
+  const [newImagePath, setNewImagePath] = useState('')
+  const [newCompatibility, setNewCompatibility] = useState('')
+  const [rowBusy, setRowBusy] = useState(false)
+  const [rowError, setRowError] = useState<string | null>(null)
+  const [confirm, setConfirm] = useState<Confirm | null>(null)
 
   // The parent mounts this component with key={productId}, so a different
   // product gets a fresh instance and the initial state above is already the
@@ -73,6 +103,52 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
   function patchForm<K extends keyof ProductPatch>(key: K, value: ProductPatch[K]) {
     setForm((prev) => (prev ? { ...prev, [key]: value } : prev))
     setSave({ kind: 'idle' })
+  }
+
+  /** Re-reads the product so newly inserted rows arrive with their ids. */
+  async function reload() {
+    const fresh = await loadProductDetail(productId)
+    setDetail(fresh)
+    setVariants(fresh.variants.map((v) => ({
+      id: v.id, legacyKey: v.legacy_key, name: v.name, color: v.color,
+      color_code: v.color_code, storage: v.storage, stock: v.stock, sort_order: v.sort_order,
+    })))
+    setSpecs(fresh.specs.map((sp) => ({ id: sp.id, label: sp.label, value: sp.value })))
+    setImages(fresh.images.map((i) => ({ id: i.id, path: i.path, alt: i.alt ?? '', position: i.position })))
+  }
+
+  /** Runs one immediate row write, keeping its error separate from the form's. */
+  async function runRowAction(action: () => Promise<void>) {
+    setRowBusy(true)
+    setRowError(null)
+    try {
+      await action()
+      await reload()
+      onSaved()
+    } catch (err) {
+      setRowError(err instanceof Error ? err.message : 'The database refused that change.')
+    } finally {
+      setRowBusy(false)
+    }
+  }
+
+  async function handleDeleteProduct() {
+    if (!detail) return
+    setRowBusy(true)
+    setRowError(null)
+    try {
+      const outcome = await deleteProduct(detail.product.id)
+      if (!outcome.ok) {
+        setRowError(outcome.reason)
+        setConfirm(null)
+        return
+      }
+      onDeleted?.(detail.product.name)
+    } catch (err) {
+      setRowError(err instanceof Error ? err.message : 'The database refused the deletion.')
+    } finally {
+      setRowBusy(false)
+    }
   }
 
   async function handleSave() {
@@ -215,9 +291,8 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
                 </div>
               </EditorSection>
 
-              {variants.length > 0 && (
-                <EditorSection title="Variants"
-                  description="Variant keys are fixed. They map database rows back to saved carts and wishlists, so they are never edited here. Pricing has its own page.">
+              <EditorSection title="Variants"
+                  description="Variant keys are fixed once created: they map database rows back to saved carts and wishlists. Prices for each variant live on the Pricing screen.">
                   <div className="space-y-4">
                     {variants.map((variant, index) => (
                       <div key={variant.id} className="rounded-2xl border border-mint/70 dark:border-border bg-card p-4">
@@ -226,6 +301,12 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
                             {variant.legacyKey ?? '—'}
                           </span>
                           <Lock size={12} className="text-muted-foreground" />
+                          <button type="button" disabled={disabled || rowBusy}
+                            aria-label={`Remove variant ${variant.name}`}
+                            onClick={() => setConfirm({ kind: 'variant', id: variant.id, label: variant.name })}
+                            className="focus-ring ml-auto flex h-8 w-8 items-center justify-center rounded-xl text-muted-foreground transition hover:bg-red-500/8 hover:text-red-500 active:scale-95 disabled:opacity-40">
+                            <Trash2 size={14} />
+                          </button>
                         </div>
                         <div className="grid gap-3">
                           <TextField id={`v-name-${variant.id}`} label="Label" value={variant.name} disabled={disabled}
@@ -247,9 +328,34 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
                         </div>
                       </div>
                     ))}
+
+                    {variants.length === 0 && (
+                      <p className="text-[13px] text-muted-foreground">
+                        This product is sold as one thing. Add a variant to offer storage, colour or size
+                        options — each one can then be priced separately.
+                      </p>
+                    )}
+
+                    <div className="flex items-start gap-2">
+                      <input aria-label="New variant label" value={newVariantName} disabled={disabled || rowBusy}
+                        placeholder="New variant, e.g. 512GB"
+                        onChange={(e) => setNewVariantName(e.target.value)}
+                        className="focus-ring flex-1 rounded-xl border border-mint-deep dark:border-border bg-card px-3 py-2 text-[13px] text-foreground focus:border-primary/45 focus:outline-none disabled:opacity-60" />
+                      <Button type="button" variant="outline" size="sm"
+                        disabled={disabled || rowBusy || newVariantName.trim() === ''}
+                        onClick={() => void runRowAction(async () => {
+                          await addVariant(
+                            productId,
+                            { name: newVariantName, color: null, color_code: null, storage: null, stock: null },
+                            detail.variants,
+                          )
+                          setNewVariantName('')
+                        })}>
+                        <Plus size={14} className="mr-1.5" /> Add
+                      </Button>
+                    </div>
                   </div>
                 </EditorSection>
-              )}
 
               <EditorSection title="Specifications" description="Rendered on the product page in this order.">
                 <div className="space-y-2.5">
@@ -278,14 +384,20 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
               </EditorSection>
 
               <EditorSection title="Images"
-                description="Reference management only. Files still ship inside the app, so these paths point at the bundled library. Uploading to Supabase Storage is a later phase.">
+                description="Image references. Files are served from the app's bundled library or from a full https:// URL — this project has no Supabase Storage bucket, so nothing is uploaded here.">
                 <div className="space-y-3">
                   {images.length === 0 && (
-                    <p className="text-[13px] text-muted-foreground">No image rows for this product.</p>
+                    <p className="text-[13px] text-muted-foreground">
+                      No images yet. The first one added becomes the card image customers see.
+                    </p>
                   )}
                   {images.map((image, index) => (
                     <div key={image.id} className="flex items-start gap-3 rounded-2xl border border-mint/70 dark:border-border bg-card p-3">
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft border border-mint-deep text-primary">
+                      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${
+                        detail.images.find((i) => i.id === image.id)?.is_primary
+                          ? 'border-mint-deep bg-primary-soft text-primary'
+                          : 'border-mint/70 dark:border-border bg-muted text-muted-foreground'
+                      }`}>
                         <ImageIcon size={16} />
                       </span>
                       <div className="min-w-0 flex-1 grid gap-2">
@@ -296,21 +408,104 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
                           onChange={(e) => setImages((p) => p.map((x, i) => i === index ? { ...x, alt: e.target.value } : x))}
                           className="focus-ring w-full rounded-xl border border-mint-deep dark:border-border bg-background px-3 py-2 text-[13px] text-foreground focus:outline-none focus:border-primary/45 disabled:opacity-60" />
                       </div>
+                      <div className="flex shrink-0 flex-col gap-1">
+                        <button type="button" disabled={disabled || rowBusy}
+                          aria-label={detail.images.find((i) => i.id === image.id)?.is_primary ? 'Primary image' : 'Make primary image'}
+                          onClick={() => void runRowAction(() => setPrimaryImage(productId, image.id))}
+                          className={`focus-ring flex h-9 w-9 items-center justify-center rounded-xl transition active:scale-95 disabled:opacity-40 ${
+                            detail.images.find((i) => i.id === image.id)?.is_primary
+                              ? 'text-primary'
+                              : 'text-muted-foreground hover:bg-primary-soft hover:text-primary'
+                          }`}>
+                          <Star size={15} fill={detail.images.find((i) => i.id === image.id)?.is_primary ? 'currentColor' : 'none'} />
+                        </button>
+                        <button type="button" disabled={disabled || rowBusy} aria-label="Remove image"
+                          onClick={() => setConfirm({ kind: 'image', id: image.id, label: image.path })}
+                          className="focus-ring flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition hover:bg-red-500/8 hover:text-red-500 active:scale-95 disabled:opacity-40">
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
                     </div>
                   ))}
+
+                  <div className="flex items-start gap-2">
+                    <input aria-label="New image path" value={newImagePath} disabled={disabled || rowBusy}
+                      placeholder="/images/products/iphone/iphone-18-pro.jpg"
+                      onChange={(e) => setNewImagePath(e.target.value)}
+                      className="focus-ring flex-1 rounded-xl border border-mint-deep dark:border-border bg-card px-3 py-2 font-mono text-[12px] text-foreground focus:border-primary/45 focus:outline-none disabled:opacity-60" />
+                    <Button type="button" variant="outline" size="sm"
+                      disabled={disabled || rowBusy || newImagePath.trim() === ''}
+                      onClick={() => void runRowAction(async () => {
+                        await addImage(productId, { path: newImagePath, alt: null }, detail.images)
+                        setNewImagePath('')
+                      })}>
+                      <Plus size={14} className="mr-1.5" /> Add
+                    </Button>
+                  </div>
                 </div>
               </EditorSection>
 
-              {detail.compatibility.length > 0 && (
-                <EditorSection title="Compatibility" description="Read-only in this phase.">
+              <EditorSection title="Compatibility"
+                description="Which devices this product fits. Shown on the product page for parts and accessories.">
+                <div className="space-y-2.5">
+                  {detail.compatibility.length === 0 && (
+                    <p className="text-[13px] text-muted-foreground">No compatibility entries.</p>
+                  )}
                   <div className="flex flex-wrap gap-2">
                     {detail.compatibility.map((c) => (
-                      <span key={c.id} className="rounded-full border border-mint-deep bg-primary-soft px-3 py-1 text-[12px] text-primary">
+                      <span key={c.id}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-mint-deep bg-primary-soft py-1 pl-3 pr-1 text-[12px] text-primary">
                         {c.label}
+                        <button type="button" disabled={disabled || rowBusy} aria-label={`Remove ${c.label}`}
+                          onClick={() => setConfirm({ kind: 'compatibility', id: c.id, label: c.label })}
+                          className="focus-ring flex h-5 w-5 items-center justify-center rounded-full text-primary/70 transition hover:bg-red-500/10 hover:text-red-500 disabled:opacity-40">
+                          <X size={12} />
+                        </button>
                       </span>
                     ))}
                   </div>
+
+                  <div className="flex items-start gap-2">
+                    <input aria-label="New compatibility entry" value={newCompatibility} disabled={disabled || rowBusy}
+                      placeholder="iPhone 18 Pro"
+                      onChange={(e) => setNewCompatibility(e.target.value)}
+                      className="focus-ring flex-1 rounded-xl border border-mint-deep dark:border-border bg-card px-3 py-2 text-[13px] text-foreground focus:border-primary/45 focus:outline-none disabled:opacity-60" />
+                    <Button type="button" variant="outline" size="sm"
+                      disabled={disabled || rowBusy || newCompatibility.trim() === ''}
+                      onClick={() => void runRowAction(async () => {
+                        await addCompatibility(productId, { label: newCompatibility, device_model_id: null }, detail.compatibility)
+                        setNewCompatibility('')
+                      })}>
+                      <Plus size={14} className="mr-1.5" /> Add
+                    </Button>
+                  </div>
+                </div>
+              </EditorSection>
+
+              {canEdit && (
+                <EditorSection title="Danger zone"
+                  description="A product that has ever been ordered is unpublished, never deleted — that is what keeps past orders readable.">
+                  <Button type="button" variant="outline" disabled={rowBusy}
+                    className="border-red-500/40 text-red-500 hover:bg-red-500/8"
+                    onClick={() => void (async () => {
+                      setRowError(null)
+                      try {
+                        setConfirm({ kind: 'product', orderLines: await countOrderLines(productId) })
+                      } catch (err) {
+                        setRowError(err instanceof Error ? err.message : 'Could not check order history.')
+                      }
+                    })()}>
+                    <Ban size={15} className="mr-1.5" />
+                    Delete this product
+                  </Button>
                 </EditorSection>
+              )}
+
+              {rowError && (
+                <div className="flex items-start gap-2.5 rounded-2xl border border-red-500/25 bg-red-500/8 px-4 py-3">
+                  <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-500" />
+                  <p className="text-[13px] text-foreground">{rowError}</p>
+                </div>
               )}
 
               <div className="flex items-start gap-2.5 rounded-2xl border border-mint/70 dark:border-border bg-muted px-4 py-3">
@@ -322,6 +517,54 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
             </>
           )}
         </div>
+
+        {confirm && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center px-5">
+            <button type="button" aria-label="Cancel" onClick={() => setConfirm(null)}
+              className="absolute inset-0 bg-black/55 backdrop-blur-[2px]" />
+            <div role="dialog" aria-modal="true"
+              className="relative w-full max-w-sm rounded-[26px] border border-mint/80 dark:border-border bg-surface p-6 shadow-float">
+              <h3 className="mb-2 text-lg font-bold tracking-tight text-foreground">
+                {confirm.kind === 'variant' ? 'Remove this variant?'
+                  : confirm.kind === 'image' ? 'Remove this image?'
+                  : confirm.kind === 'compatibility' ? 'Remove this entry?'
+                  : confirm.orderLines > 0 ? 'This product has been ordered' : 'Delete this product?'}
+              </h3>
+              <p className="mb-5 text-sm leading-relaxed text-muted-foreground">
+                {confirm.kind === 'variant'
+                  ? `“${confirm.label}” and its price history are removed permanently. Carts that hold it will no longer resolve it.`
+                  : confirm.kind === 'image'
+                    ? `${confirm.label} stops being shown. The image file itself is untouched.`
+                    : confirm.kind === 'compatibility'
+                      ? `“${confirm.label}” is removed from this product's compatibility list.`
+                      : confirm.orderLines > 0
+                        ? `It appears on ${confirm.orderLines} order line${confirm.orderLines === 1 ? '' : 's'}, so it cannot be deleted. Unpublish it instead — customers stop seeing it and every order stays intact.`
+                        : 'The product, its variants, images, specifications and price history are removed permanently. It has never been ordered, so no order history is affected.'}
+              </p>
+              <div className="flex gap-2.5">
+                <Button variant="ghost" fullWidth onClick={() => setConfirm(null)} disabled={rowBusy}>
+                  {confirm.kind === 'product' && confirm.orderLines > 0 ? 'Close' : 'Cancel'}
+                </Button>
+                {!(confirm.kind === 'product' && confirm.orderLines > 0) && (
+                  <Button fullWidth disabled={rowBusy}
+                    className="bg-red-500 hover:bg-red-500/90 shadow-none"
+                    onClick={() => {
+                      const target = confirm
+                      setConfirm(null)
+                      if (target.kind === 'variant') void runRowAction(() => deleteVariant(target.id))
+                      else if (target.kind === 'image') void runRowAction(() => deleteImage(target.id))
+                      else if (target.kind === 'compatibility') void runRowAction(() => deleteCompatibility(target.id))
+                      else void handleDeleteProduct()
+                    }}>
+                    {rowBusy
+                      ? <><LoaderCircle size={16} className="mr-2 animate-spin motion-reduce:animate-none" />Removing…</>
+                      : 'Remove'}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         <footer className="border-t border-mint/80 dark:border-border px-5 py-4 bg-glass backdrop-blur-xl">
           {save.kind === 'error' && (

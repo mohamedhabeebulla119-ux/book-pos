@@ -4,12 +4,13 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
   Store, LoaderCircle, AlertCircle, Crown, Clock, XCircle, LogIn,
-  ShieldCheck, ArrowRight, CalendarDays,
+  ShieldCheck, ArrowRight, CalendarDays, FlaskConical, Lock,
 } from 'lucide-react'
 import { Header } from '@/components/ui/Header'
 import { Button } from '@/components/ui/Button'
 import { WholesaleRequestForm } from '@/components/account/WholesaleRequestForm'
 import { useCustomerAuth } from '@/context/CustomerAuthContext'
+import { useGuestMode } from '@/lib/auth/guestMode'
 import {
   listOwnRequests, pendingRequest, latestDecision,
   type WholesaleRequest,
@@ -58,6 +59,9 @@ function Chip({ icon: Icon, tone }: { icon: typeof Crown; tone: 'primary' | 'amb
 
 export default function WholesalePage() {
   const { status, userId, profile, customerType, vipExpired } = useCustomerAuth()
+  // A test identity, never an authorisation. Only used to decide which
+  // explanation to show someone who is not signed in.
+  const guest = useGuestMode()
 
   const [requestLoad, setRequestLoad] = useState<Load>({ kind: 'loading' })
   const [requests, setRequests] = useState<WholesaleRequest[]>([])
@@ -110,21 +114,76 @@ export default function WholesalePage() {
           </div>
         )}
 
+        {/* Wholesale Guest — the portal UI, with nothing behind it.
+            This is the "show the screens, withhold the data" option: the layout
+            can be reviewed, while real wholesale pricing stays where it was,
+            behind a verified account the database has marked wholesale_vip.
+            Nothing is mocked, because a demo number sitting in a price field is
+            exactly the thing that later gets quoted to a customer. */}
+        {status === 'signed-out' && guest !== null && (
+          <div className="space-y-4">
+            <div className="rounded-[26px] border-2 border-dashed border-amber-500/45 bg-amber-500/8 p-6">
+              <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-amber-500/40 bg-amber-400/20 text-amber-700 dark:text-amber-400">
+                <FlaskConical size={25} strokeWidth={1.9} />
+              </span>
+              <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-700 dark:text-amber-400">
+                Wholesale demo · test mode
+              </p>
+              <h2 className="mb-2 text-lg font-bold tracking-tight text-foreground">
+                You are viewing the wholesale portal as a guest
+              </h2>
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                Every wholesale screen, navigation path and component can be reviewed from here.
+                What is deliberately absent is the data: a guest has no Supabase session, so the
+                database answers as an anonymous caller and returns retail prices only.
+              </p>
+            </div>
+
+            <Panel>
+              <Chip icon={Lock} tone="muted" />
+              <h2 className="mb-2 text-lg font-bold tracking-tight text-foreground">
+                Wholesale pricing needs a verified account
+              </h2>
+              <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
+                Wholesale VIP prices are released by PostgreSQL to accounts an administrator has
+                approved, and to nobody else. Selecting &ldquo;Wholesale Guest&rdquo; asks to see the
+                wholesale experience; it does not — and cannot — make this device a wholesale
+                customer.
+              </p>
+              <div className="flex flex-col gap-2.5">
+                <Link href="/account/sign-in" className="w-full">
+                  <Button fullWidth size="lg">Sign in with your phone</Button>
+                </Link>
+                <Link href="/categories" className="w-full">
+                  <Button fullWidth size="lg" variant="secondary">Browse the store</Button>
+                </Link>
+              </div>
+            </Panel>
+
+            <p className="flex items-start gap-2 px-1 text-[11.5px] leading-relaxed text-muted-foreground">
+              <ShieldCheck size={13} className="mt-0.5 shrink-0" />
+              Guest mode is a testing feature of this build only. It is compiled out of production
+              builds and grants no access of any kind.
+            </p>
+          </div>
+        )}
+
         {/* Not signed in — the tier cannot be known without a session. */}
-        {status === 'signed-out' && (
+        {status === 'signed-out' && guest === null && (
           <Panel>
             <Chip icon={LogIn} tone="primary" />
             <h2 className="mb-2 text-lg font-bold tracking-tight text-foreground">Sign in to continue</h2>
             <p className="mb-5 text-sm leading-relaxed text-muted-foreground">
               Wholesale pricing is tied to your account, so we need to know who you are before we
-              can show it. Create an account if this is your first time — it takes a moment.
+              can show it. We will text a code to your phone — if the number is new to Apple Expert,
+              verifying it creates your account.
             </p>
             <div className="flex flex-col gap-2.5">
               <Link href="/account/sign-in" className="w-full">
-                <Button fullWidth size="lg">Sign in</Button>
+                <Button fullWidth size="lg">Sign in with your phone</Button>
               </Link>
-              <Link href="/account/sign-up" className="w-full">
-                <Button fullWidth size="lg" variant="secondary">Create an account</Button>
+              <Link href="/categories" className="w-full">
+                <Button fullWidth size="lg" variant="secondary">Browse the store</Button>
               </Link>
             </div>
           </Panel>

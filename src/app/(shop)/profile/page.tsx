@@ -9,10 +9,11 @@ import { useTheme } from '@/context/ThemeContext'
 import { useWishlist } from '@/context/WishlistContext'
 import { useCustomerAuth } from '@/context/CustomerAuthContext'
 import { CUSTOMER_TYPE_LABEL } from '@/lib/customer/profile'
+import { useGuestMode, endGuestSession } from '@/lib/auth/guestMode'
 import { clearExperience } from '@/utils/experience'
 import {
   Moon, Sun, ChevronRight, Package, CreditCard, Settings, HelpCircle, LogOut, Heart,
-  Crown, User, LogIn, Store, Repeat, LoaderCircle,
+  Crown, User, LogIn, Store, Repeat, LoaderCircle, FlaskConical,
 } from 'lucide-react'
 
 export default function ProfilePage() {
@@ -22,6 +23,8 @@ export default function ProfilePage() {
   // Identity comes from the Supabase session and the customer's own profile row
   // under "profiles read own" — never from a constant in this file.
   const { status, email, profile, customerType, vipExpired, signOut } = useCustomerAuth()
+  /** A testing label, deliberately kept out of everything that decides pricing. */
+  const guest = useGuestMode()
 
   const signedIn = status === 'signed-in'
   const displayName = profile?.full_name?.trim() || 'Your account'
@@ -29,6 +32,13 @@ export default function ProfilePage() {
 
   /** Returns to the entry screen so the customer can pick the other experience. */
   function switchExperience() {
+    clearExperience()
+    router.push('/welcome')
+  }
+
+  /** Leaves the test identity. There is no session to end — only a local flag. */
+  function exitGuestMode() {
+    endGuestSession()
     clearExperience()
     router.push('/welcome')
   }
@@ -92,19 +102,40 @@ export default function ProfilePage() {
               )}
             </div>
           </div>
+        ) : guest ? (
+          /* Guest Test Mode. Rendered as a TEST artefact rather than an account:
+             no avatar, no tier chip, no name — because there is no customer
+             here, only a flag in this browser session. */
+          <div className="mb-6 rounded-[26px] border-2 border-dashed border-amber-500/45 bg-amber-500/8 p-5 text-center">
+            <span className="mx-auto mb-3.5 flex h-13 w-13 items-center justify-center rounded-full border border-amber-500/40 bg-amber-400/20 text-amber-700 dark:text-amber-400">
+              <FlaskConical size={23} strokeWidth={1.9} />
+            </span>
+            <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-700 dark:text-amber-400">
+              Test mode — guest account
+            </p>
+            <h1 className="mb-1.5 text-lg font-bold tracking-tight">
+              {guest === 'wholesale' ? 'Wholesale demo' : 'Retail demo'}
+            </h1>
+            <p className="mx-auto mb-4 max-w-xs text-[13px] leading-relaxed text-muted-foreground">
+              You are not signed in. Orders, saved addresses and account pricing need a real
+              verified account — this identity exists only to review the screens.
+            </p>
+            <div className="flex flex-col gap-2.5">
+              <Link href="/account/sign-in"><Button fullWidth>Sign in with your phone</Button></Link>
+              <Button fullWidth variant="secondary" onClick={exitGuestMode}>Exit test mode</Button>
+            </div>
+          </div>
         ) : (
           <div className="mb-6 bg-surface border border-mint/80 dark:border-border rounded-[26px] p-5 shadow-card text-center">
             <span className="mx-auto mb-3.5 flex h-13 w-13 items-center justify-center rounded-full bg-well-strong border border-mint-deep text-primary">
               <LogIn size={23} strokeWidth={1.8} />
             </span>
-            <h1 className="text-lg font-bold tracking-tight mb-1.5">You are browsing as a guest</h1>
+            <h1 className="text-lg font-bold tracking-tight mb-1.5">You are not signed in</h1>
             <p className="mx-auto mb-4 max-w-xs text-[13px] leading-relaxed text-muted-foreground">
-              Sign in to see your orders and the pricing set for your account.
+              Sign in with your phone number to see your orders and the pricing set for your
+              account.
             </p>
-            <div className="flex flex-col gap-2.5">
-              <Link href="/account/sign-in"><Button fullWidth>Sign in</Button></Link>
-              <Link href="/account/sign-up"><Button fullWidth variant="secondary">Create an account</Button></Link>
-            </div>
+            <Link href="/account/sign-in"><Button fullWidth>Sign in with your phone</Button></Link>
           </div>
         )}
 

@@ -44,6 +44,20 @@ export function getSupabaseClient(): SupabaseClient<Database> {
 }
 
 /**
+ * The public URL and publishable key, for the few calls that are plain HTTP
+ * against Supabase rather than a supabase-js method — currently the GoTrue
+ * /settings probe that reports whether the phone (SMS OTP) provider has been
+ * configured for this project.
+ *
+ * This is NOT a second client: it creates no session, holds no state and signs
+ * nobody in. Returns null when the build was made without Supabase configured.
+ */
+export function getSupabaseEnv(): { url: string; key: string } | null {
+  if (!supabaseUrl || !supabasePublishableKey) return null;
+  return { url: supabaseUrl, key: supabasePublishableKey };
+}
+
+/**
  * Whether the Supabase environment variables were present at build time.
  * Lets callers degrade gracefully instead of throwing.
  */

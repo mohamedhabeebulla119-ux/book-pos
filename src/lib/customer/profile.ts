@@ -90,7 +90,7 @@ export function isVipExpired(profile: CustomerProfile | null, now: Date = new Da
  */
 export async function updateOwnProfile(
   userId: string,
-  fields: { full_name?: string | null; phone?: string | null },
+  fields: { full_name?: string | null; phone?: string | null; email?: string | null },
 ): Promise<CustomerProfile> {
   const { data, error } = await getSupabaseClient()
     .from('profiles')

@@ -13,6 +13,23 @@ type Save = { kind: 'idle' } | { kind: 'saving' } | { kind: 'saved'; message: st
 
 const PENDING_PART = /^part-(display|battery)-/
 
+/**
+ * Text typed into one price field, tagged with the stored value it was typed
+ * against. `null` means "nothing typed since the last refresh".
+ */
+type Draft = { against: number | null; text: string } | null
+
+/**
+ * What one price input shows: the draft while it still refers to the price
+ * currently in the database, otherwise that price itself. This is the whole
+ * synchronisation rule — a saved price arrives as a new `cents`, which retires
+ * the draft without any state to reset.
+ */
+function draftText(draft: Draft, cents: number | null): string {
+  if (draft && draft.against === cents) return draft.text
+  return cents === null ? '' : String(centsToRupees(cents))
+}
+
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString('en-GB', {
     day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
@@ -27,11 +44,24 @@ export function PriceEditor({
   onClose: () => void
   onSaved: () => void
 }) {
-  const [retail, setRetail] = useState(target.retailCents === null ? '' : String(centsToRupees(target.retailCents)))
-  const [vip, setVip] = useState(target.vipCents === null ? '' : String(centsToRupees(target.vipCents)))
+  // Each field is a DERIVED value, not a copy of the price taken when the drawer
+  // opened. A draft is tagged with the cents value it was typed against, so the
+  // moment the page hands this drawer a refreshed row the draft is stale by
+  // definition and the input falls back to the refreshed price — no closing and
+  // reopening, no page reload.
+  //
+  // The two tiers are tagged separately, which is what keeps them independent:
+  // saving retail moves `target.retailCents` only, so the wholesale field's
+  // draft is still current and is left untouched, and vice versa.
+  const [retailDraft, setRetailDraft] = useState<Draft>(null)
+  const [vipDraft, setVipDraft] = useState<Draft>(null)
+
   const [save, setSave] = useState<Save>({ kind: 'idle' })
   const [history, setHistory] = useState<PriceRow[] | null>(null)
   const [historyError, setHistoryError] = useState<string | null>(null)
+
+  const retail = draftText(retailDraft, target.retailCents)
+  const vip = draftText(vipDraft, target.vipCents)
 
   useEffect(() => {
     let cancelled = false
@@ -153,7 +183,7 @@ export function PriceEditor({
                   <span className="pointer-events-none absolute inset-y-0 left-0 flex w-11 items-center justify-center text-[13px] font-semibold text-muted-foreground">Rs.</span>
                   <input id="price-retail" type="text" inputMode="numeric" className={`${inputClass} pl-11`}
                     value={retail} disabled={disabled} placeholder="490000"
-                    onChange={(e) => { setRetail(e.target.value); setSave({ kind: 'idle' }) }} />
+                    onChange={(e) => { setRetailDraft({ against: target.retailCents, text: e.target.value }); setSave({ kind: 'idle' }) }} />
                 </div>
               </label>
 
@@ -168,7 +198,7 @@ export function PriceEditor({
                   <span className="pointer-events-none absolute inset-y-0 left-0 flex w-11 items-center justify-center text-[13px] font-semibold text-muted-foreground">Rs.</span>
                   <input id="price-vip" type="text" inputMode="numeric" className={`${inputClass} pl-11`}
                     value={vip} disabled={disabled} placeholder="Leave blank"
-                    onChange={(e) => { setVip(e.target.value); setSave({ kind: 'idle' }) }} />
+                    onChange={(e) => { setVipDraft({ against: target.vipCents, text: e.target.value }); setSave({ kind: 'idle' }) }} />
                 </div>
               </label>
             </div>

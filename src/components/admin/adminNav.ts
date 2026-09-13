@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   Package,
+  FolderTree,
   Tags,
   Crown,
   ClipboardCheck,
@@ -25,6 +26,7 @@ export interface AdminNavItem {
 export const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin',               label: 'Dashboard',     icon: LayoutDashboard, hint: 'Overview' },
   { href: '/admin/products',      label: 'Products',      icon: Package,         hint: 'Catalog and variants' },
+  { href: '/admin/categories',    label: 'Categories',    icon: FolderTree,      hint: 'How products are grouped' },
   { href: '/admin/pricing',       label: 'Pricing',       icon: Tags,            hint: 'Retail and VIP prices' },
   { href: '/admin/vip-customers', label: 'VIP Customers', icon: Crown,           hint: 'Wholesale designation' },
   { href: '/admin/wholesale-requests', label: 'Wholesale',  icon: ClipboardCheck,  hint: 'Access requests' },
