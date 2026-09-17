@@ -10,11 +10,14 @@ what differs is what PostgreSQL will hand each of them.
                    ┌───────────┴───────────┐
             CUSTOMER EXPERIENCE          ADMIN
                    │                       │
-        phone + SMS one-time code    email + password
-                   │                    (/admin/login)
-             Supabase Auth                  │
-                   │                    user_roles
-        profiles.customer_type           owner/admin/staff
+       Google OAuth (primary),        email + password
+       phone + SMS one-time code        (/admin/login)
+        (kept, dormant until an             │
+         SMS provider is bought)        user_roles
+                   │                  owner/admin/staff
+             Supabase Auth
+                   │
+        profiles.customer_type
            ┌───────┴────────┐
         retail          wholesale_vip
 ```
@@ -30,9 +33,10 @@ UPDATE privilege is revoked from `authenticated`, and only
 
 | Step | Where |
 |---|---|
-| Entry screen — Retail or Wholesale | `/welcome` |
-| Phone number → code → verify | `/account/sign-in` |
-| First-time name (and optional email) | same screen, third step |
+| Entry screen — Retail or Wholesale (a UI preference only; retail browsing needs no sign-in) | `/welcome` |
+| Continue with Google (primary), or phone number → code → verify (secondary, dormant until SMS is configured) | `/account/sign-in` |
+| Google redirect lands here, waits for the session, then routes on | `/auth/callback` |
+| First-time name (and optional email) — phone path only; Google already supplies a name | same screen, third step |
 | Wholesale gateway: VIP, pending, rejected, or apply | `/wholesale` |
 
 `/account/sign-up` is kept only as a redirect to `/account/sign-in`. With a
@@ -43,7 +47,61 @@ the matching `profiles` row with `customer_type` taking its `retail` default.
 Nobody can sign up as a wholesale customer. There is no form field for it, no
 request parameter for it, and the database would refuse it if there were.
 
-## SMS provider
+## Google sign-in
+
+The primary customer authentication method. Lives in one boundary module,
+`src/lib/auth/google.ts` — the sign-in screen never calls
+`supabase.auth.signInWithOAuth` directly, the same rule `otp.ts` follows for
+phone. Like phone, it asks GoTrue's public `/auth/v1/settings` document
+whether `external.google` is actually enabled before showing the button as
+usable, so the screen never claims a capability the project doesn't have yet.
+
+The app is a static export with no Node server, so there is no server-side
+OAuth callback route. Two paths instead, both converging on the same
+`/auth/callback` page:
+
+- **Web**: a plain redirect to Google and back to `${origin}/auth/callback`.
+  supabase-js's default `detectSessionInUrl` finishes the sign-in itself when
+  that page's Supabase client is constructed — nothing in this app touches the
+  token.
+- **Capacitor/Android**: Google will not complete OAuth inside an embedded
+  WebView, so `signInWithGoogle()` instead opens the system browser
+  (`@capacitor/browser`, i.e. Chrome Custom Tabs) with `skipBrowserRedirect`
+  and a custom-scheme `redirectTo` of `com.appleexpert.app://auth-callback`.
+  `src/lib/auth/nativeOAuthListener.tsx`, mounted once in the shop layout,
+  catches that scheme coming back via `@capacitor/app`'s `appUrlOpen` event,
+  exchanges the code for a session itself, and routes to `/auth/callback` —
+  from there it's identical to the web path. The scheme is registered as a
+  second `<intent-filter>` on `MainActivity` in `AndroidManifest.xml`.
+
+### Developer setup required
+
+Google sign-in is wired into the app but returns `external.google: false`
+today because no Google OAuth client has been configured. To turn it on:
+
+1. **Google Cloud Console** → create an OAuth 2.0 Client ID (type: Web
+   application). Add one Authorized redirect URI:
+   `https://<your-project-ref>.supabase.co/auth/v1/callback` (found on
+   Supabase's dashboard, Authentication → Providers → Google, once opened —
+   it shows the exact URL to paste). No Android-specific client or SHA-1
+   fingerprint is needed; this app always goes through the web/Custom Tabs
+   flow, never Android's native Google Sign-In SDK.
+2. **Supabase dashboard** → Authentication → Providers → Google → enable, and
+   paste in the Client ID and Client Secret from step 1. Never put either of
+   these in `.env.local`, a `NEXT_PUBLIC_*` variable, or anywhere in this repo
+   — they belong only in the Supabase dashboard.
+3. **Supabase dashboard** → Authentication → URL Configuration → Redirect
+   URLs → add every URL the app can legitimately redirect back to:
+   - `http://localhost:3000/auth/callback` (local dev)
+   - `https://<your production web domain>/auth/callback`, if the storefront
+     is also served on the web
+   - `com.appleexpert.app://auth-callback` (the Android app)
+4. Rebuild is **not** required to turn this on — like the phone form, the
+   button reads the project's live capability at runtime. It is required after
+   pulling this change for the first time, since the button and the Android
+   deep-link are new code.
+
+## SMS provider (kept, currently dormant)
 
 Sending and verifying live in exactly one file: `src/lib/auth/otp.ts`. The UI
 never calls Supabase Auth for OTP directly.
@@ -145,5 +203,11 @@ use email + password plus `user_roles` (`owner`/`admin`/`staff`). Customer tiers
 (`retail`, `wholesale_vip`) and admin roles remain separate systems — a customer
 tier grants no admin access and an admin role grants no pricing.
 
-No database migration was needed for any of this. Nothing in the schema, the RLS
-policies, `product_prices`, `price_tiers`, `orders` or `user_roles` was altered.
+Adding Google sign-in did not touch the schema either, beyond one cosmetic
+trigger change: `public.handle_new_user()` now also copies an avatar URL out
+of Google's OAuth metadata into the already-existing `profiles.avatar_url`
+column. Nothing in RLS, grants, `product_prices`, `price_tiers`, `orders`,
+`user_roles`, or `admin_set_customer_type()` was altered — a Google session is
+just another way to end up with a row in `auth.users`, and everything
+downstream of that (the profile, the tier, the pricing) works exactly as it
+did before.

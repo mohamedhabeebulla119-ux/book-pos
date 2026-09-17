@@ -1,4 +1,5 @@
 import { getSupabaseClient } from '@/lib/supabase/client'
+import { getExperience } from '@/utils/experience'
 
 /**
  * The signed-in customer's own profile.
@@ -73,6 +74,20 @@ export function resolveCustomerType(
   if (profile.customer_type !== 'wholesale_vip') return 'retail'
   if (profile.vip_expires_at && new Date(profile.vip_expires_at) <= now) return 'retail'
   return 'wholesale_vip'
+}
+
+/**
+ * Where a just-authenticated customer lands, regardless of which method
+ * signed them in.
+ *
+ * The database's answer decides, not the card tapped on the entry screen: an
+ * approved wholesale customer goes to the wholesale screens wherever they
+ * came from, and a retail customer who chose Wholesale lands on the gateway,
+ * which explains that access is granted by review.
+ */
+export function resolvePostSignInDestination(customerType: CustomerType): string {
+  if (customerType === 'wholesale_vip') return '/wholesale'
+  return getExperience() === 'wholesale' ? '/wholesale' : '/'
 }
 
 /** True when the profile carries a VIP grant that has since lapsed. */

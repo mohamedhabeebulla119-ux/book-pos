@@ -152,7 +152,7 @@ export default function WholesalePage() {
               </p>
               <div className="flex flex-col gap-2.5">
                 <Link href="/account/sign-in" className="w-full">
-                  <Button fullWidth size="lg">Sign in with your phone</Button>
+                  <Button fullWidth size="lg">Sign in</Button>
                 </Link>
                 <Link href="/categories" className="w-full">
                   <Button fullWidth size="lg" variant="secondary">Browse the store</Button>
@@ -175,12 +175,12 @@ export default function WholesalePage() {
             <h2 className="mb-2 text-lg font-bold tracking-tight text-foreground">Sign in to continue</h2>
             <p className="mb-5 text-sm leading-relaxed text-muted-foreground">
               Wholesale pricing is tied to your account, so we need to know who you are before we
-              can show it. We will text a code to your phone — if the number is new to Apple Expert,
-              verifying it creates your account.
+              can show it. Continue with Google — if your account is new to Apple Expert, signing in
+              creates it.
             </p>
             <div className="flex flex-col gap-2.5">
               <Link href="/account/sign-in" className="w-full">
-                <Button fullWidth size="lg">Sign in with your phone</Button>
+                <Button fullWidth size="lg">Sign in</Button>
               </Link>
               <Link href="/categories" className="w-full">
                 <Button fullWidth size="lg" variant="secondary">Browse the store</Button>

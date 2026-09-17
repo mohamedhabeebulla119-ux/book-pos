@@ -4,6 +4,7 @@ import { CustomerAuthProvider } from "@/context/CustomerAuthContext";
 import { CartProvider } from "@/context/CartContext";
 import { WishlistProvider } from "@/context/WishlistContext";
 import { AppShell } from "@/components/ui/AppShell";
+import { NativeOAuthListener } from "@/lib/auth/nativeOAuthListener";
 import "../globals.css";
 
 export const metadata: Metadata = {
@@ -34,6 +35,7 @@ export default function RootLayout({
               before anything that renders them. Cart and wishlist stay in
               localStorage and are untouched by this. */}
           <CustomerAuthProvider>
+            <NativeOAuthListener />
             <CartProvider>
               <WishlistProvider>
                 <AppShell>{children}</AppShell>
