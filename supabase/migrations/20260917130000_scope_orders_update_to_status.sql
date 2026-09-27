@@ -1,0 +1,42 @@
+-- ============================================================================
+-- H-1 fix: column-scope UPDATE on public.orders to `status` only
+-- ----------------------------------------------------------------------------
+-- The "orders staff update status" and "orders admin all" policies (see
+-- 20260911131100_rls_policies.sql) only ever check `private.has_role(...)` -
+-- RLS USING/WITH CHECK has no column awareness, so neither policy actually
+-- restricts *which* column an UPDATE touches. Supabase's default privileges
+-- grant table-level UPDATE (all columns) on every new public table to
+-- `authenticated`, and that grant on `orders` was never revoked - only
+-- `anon`'s write privileges were revoked (line 315 of that migration). The
+-- result: any `authenticated` session for which `has_role('staff')` or
+-- `has_role('admin')` is true can UPDATE any column of any order row via
+-- PostgREST directly - total_cents, profile_id, discount, currency, etc. -
+-- not just `status`, regardless of the policy's name.
+--
+-- This mirrors the exact revoke-then-grant-back pattern already used for
+-- public.profiles (same migration, lines 308-311): the table-level grant is
+-- revoked first, then the one column the application actually writes is
+-- granted back explicitly. Omitting the revoke step is a silent failure - the
+-- policy looks correct and the column stays writable regardless.
+--
+-- IMPORTANT ARCHITECTURAL NOTE: `staff`, `admin` and `owner` are not separate
+-- Postgres roles in this project - they are rows in `public.user_roles`,
+-- checked inside RLS against the single Postgres role `authenticated`. A
+-- column-level GRANT cannot distinguish "staff-authenticated" from
+-- "admin-authenticated"; it applies to every authenticated session. This
+-- migration therefore scopes *raw table UPDATE* on orders to the `status`
+-- column for every authenticated caller, admin and owner included. This does
+-- not remove any capability the application currently uses: the entire admin
+-- panel (src/lib/admin/orders.ts, updateOrderStatus) only ever writes
+-- `{ status }` to this table today, for staff and admin alike - there is no
+-- existing code path that relies on writing any other order column via a raw
+-- client UPDATE. If admin-only editing of other order fields (e.g. a
+-- shipping correction) is wanted later, it should be a new SECURITY DEFINER
+-- RPC that re-checks `private.has_role('admin')` server-side, the same
+-- pattern already used by admin_set_price() and admin_set_customer_type() -
+-- not a wider raw-table grant.
+-- ============================================================================
+
+revoke update on public.orders from authenticated;
+
+grant update (status) on public.orders to authenticated;

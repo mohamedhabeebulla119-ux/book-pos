@@ -39,7 +39,9 @@ export function getSupabaseClient(): SupabaseClient<Database> {
     );
   }
 
-  client = createClient<Database>(supabaseUrl, supabasePublishableKey);
+  client = createClient<Database>(supabaseUrl, supabasePublishableKey, {
+    auth: { flowType: "pkce" },
+  });
   return client;
 }
 
