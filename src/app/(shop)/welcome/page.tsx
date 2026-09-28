@@ -7,6 +7,8 @@ import { ShoppingBag, Store, ArrowRight, Check, ShieldCheck, FlaskConical, LogIn
 import { cn } from '@/lib/utils'
 import { setExperience, type ShoppingExperience } from '@/utils/experience'
 import { startGuestSession, type GuestExperience } from '@/lib/auth/guestMode'
+import { useCustomerAuth } from '@/context/CustomerAuthContext'
+import { isSupabaseConfigured } from '@/lib/supabase/client'
 
 /**
  * Customer entry: "How would you like to continue?"
@@ -62,10 +64,18 @@ const OPTIONS: readonly ExperienceOption[] = [
 export default function WelcomePage() {
   const router = useRouter()
   const shouldReduceMotion = useReducedMotion()
+  const { status } = useCustomerAuth()
 
+  /**
+   * Both cards go through the same phone sign-in. The choice is stored first,
+   * so once the code is verified resolvePostSignInDestination() sends the
+   * customer on to option.destination — and a Wholesale choice still lands on
+   * the gateway, where the database decides whether they hold VIP pricing.
+   */
   function choose(option: ExperienceOption) {
     setExperience(option.id)
-    router.replace(option.destination)
+    const needsSignIn = isSupabaseConfigured() && status !== 'signed-in'
+    router.replace(needsSignIn ? '/account/sign-in' : option.destination)
   }
 
   /**
