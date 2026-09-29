@@ -4,7 +4,9 @@ import { Header } from '@/components/ui/Header'
 import { CategoryCard } from '@/components/ui/CategoryCard'
 import { ProductCard } from '@/components/ui/ProductCard'
 import { SectionHeading } from '@/components/ui/Heading'
-import { useFeaturedProducts } from '@/lib/catalog'
+import { useFeaturedProducts, useCatalogProducts } from '@/lib/catalog'
+import { useStoreSettings } from '@/lib/store/settings'
+import { PromoBanners, StoreClosedNotice } from '@/components/ui/PromoBanners'
 import { Button } from '@/components/ui/Button'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
@@ -32,6 +34,10 @@ export default function Home() {
   // catalog so duplicate ids use the authoritative deviceData definitions.
   // Falls back to the bundled selection when Supabase is unavailable.
   const featuredProducts = useFeaturedProducts()
+  // Storefront switches from /admin/settings (public.store_settings).
+  const { settings } = useStoreSettings()
+  // "New" is the admin-set products.is_new flag; no separate list is kept.
+  const newArrivals = useCatalogProducts().filter((p) => p.isNew).slice(0, 8)
 
   const categories = [
     { title: 'iPhone', subtitle: 'Pro & Standard', image: '/images/categories/iphone.jpg', href: '/categories/iphone' },
@@ -43,6 +49,7 @@ export default function Home() {
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
+      <StoreClosedNotice />
 
       {/* Hero — the strongest gradient treatment in the app */}
       <section className="relative px-4 pt-5 pb-2">
@@ -177,6 +184,9 @@ export default function Home() {
         </Link>
       </section>
 
+      {/* Promotional banners — managed in /admin/settings, images from Storage */}
+      <PromoBanners slot="home" />
+
       {/* Quick category chips — floating mini cards, horizontally scrollable */}
       <section className="pt-4">
         <div className="flex gap-2 overflow-x-auto px-4 pb-2 no-scrollbar">
@@ -265,6 +275,7 @@ export default function Home() {
       </section>
 
       {/* Featured Products */}
+      {settings.show_featured_products && featuredProducts.length > 0 && (
       <section className="pt-12 pb-10">
         <div className="max-w-4xl mx-auto">
           <div className="px-4">
@@ -284,6 +295,24 @@ export default function Home() {
           </div>
         </div>
       </section>
+      )}
+
+      {/* New Arrivals — products an administrator has marked as new */}
+      {settings.show_new_arrivals && newArrivals.length > 0 && (
+        <section className="pb-10">
+          <div className="max-w-4xl mx-auto">
+            <div className="px-4">
+              <SectionHeading title="New Arrivals" subtitle="The latest additions to our store." />
+            </div>
+            <div className="flex gap-4 px-4 pt-1 pb-6 overflow-x-auto snap-x snap-mandatory scroll-px-4 no-scrollbar sm:grid sm:grid-cols-2 sm:overflow-visible sm:snap-none sm:pb-2">
+              {newArrivals.map(product => (
+                <ProductCard key={product.id} product={product} featured />
+              ))}
+              <div className="w-1 shrink-0 sm:hidden" aria-hidden="true" />
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Repair Center */}
       <section className="px-4 py-12">

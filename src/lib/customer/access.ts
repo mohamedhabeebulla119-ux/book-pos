@@ -70,11 +70,14 @@ export function homeFor(access: CustomerAccess): string {
   return access === 'wholesale_vip' ? '/wholesale' : '/'
 }
 
+export type UnavailableReason = 'maintenance' | 'retail-closed' | 'wholesale-closed'
+
 export type AccessDecision =
   | { kind: 'render' }
   | { kind: 'wait' }
   | { kind: 'error' }
   | { kind: 'redirect'; to: string }
+  | { kind: 'unavailable'; reason: UnavailableReason }
 
 export interface EntryProgress {
   /** Local onboarding flag — UX sequencing only. */
@@ -83,7 +86,44 @@ export interface EntryProgress {
   experienceChosen: boolean
 }
 
-export function decideAccess(access: CustomerAccess, pathname: string, entry: EntryProgress): AccessDecision {
+/**
+ * The admin-controlled store switches (public.store_settings). They can only
+ * ever take access AWAY — nothing here can open a storefront that the
+ * customer-type rules below would refuse.
+ */
+export interface StoreGate {
+  /** False until store_settings has been read (or failed, with defaults). */
+  loaded: boolean
+  maintenance: boolean
+  retailEnabled: boolean
+  wholesaleEnabled: boolean
+}
+
+export const OPEN_STORE: StoreGate = { loaded: true, maintenance: false, retailEnabled: true, wholesaleEnabled: true }
+
+export function decideAccess(
+  access: CustomerAccess,
+  pathname: string,
+  entry: EntryProgress,
+  store: StoreGate = OPEN_STORE,
+): AccessDecision {
+  // Maintenance closes the whole customer app, sign-in included, so nobody
+  // starts a flow that cannot finish.
+  if (!store.loaded) return { kind: 'wait' }
+  if (store.maintenance) return { kind: 'unavailable', reason: 'maintenance' }
+
+  const decision = decideCustomerAccess(access, pathname, entry)
+  if (decision.kind !== 'render') return decision
+
+  // A storefront switched off in /admin/settings. The profile page stays open
+  // so the customer can still see their account and sign out.
+  if (normalise(pathname) === '/profile') return decision
+  if (access === 'retail' && !store.retailEnabled) return { kind: 'unavailable', reason: 'retail-closed' }
+  if (access === 'wholesale_vip' && !store.wholesaleEnabled) return { kind: 'unavailable', reason: 'wholesale-closed' }
+  return decision
+}
+
+function decideCustomerAccess(access: CustomerAccess, pathname: string, entry: EntryProgress): AccessDecision {
   const zone = routeZone(pathname)
   if (zone === 'entry') return { kind: 'render' }
 

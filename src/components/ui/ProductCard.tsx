@@ -14,6 +14,7 @@ import { getCategoryTheme } from '@/lib/categoryTheme'
 import { getIphoneCardTone } from '@/lib/iphoneCardTheme'
 import { getProductSpecChips } from '@/lib/productSpecChips'
 import { Box, Check, Heart, ArrowRight, ShieldCheck } from 'lucide-react'
+import { useStoreSettings } from '@/lib/store/settings'
 
 interface ProductCardProps {
   product: Product
@@ -38,6 +39,8 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
   const theme = getCategoryTheme(product.category)
   const wishlisted = isWishlisted(product.id)
   const availability = product.stock <= 0 ? 'out' : product.stock <= 5 ? 'low' : 'in'
+  // "Show stock status" in /admin/settings.
+  const showStock = useStoreSettings().settings.show_stock_status
   const isIphone = product.category === 'iPhone'
   const iphoneTone = isIphone ? getIphoneCardTone(product.name) : null
 
@@ -160,7 +163,7 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
               {tagline}.
             </p>
           )}
-          {availability !== 'in' && (
+          {showStock && availability !== 'in' && (
             <span className={`inline-flex items-center gap-1 text-[10px] sm:text-xs font-medium mb-1 ${availability === 'low' ? 'text-amber-600 dark:text-amber-400' : 'text-red-500'}`}>
               <span className={`w-1.5 h-1.5 rounded-full ${availability === 'low' ? 'bg-amber-500' : 'bg-red-500'}`} />
               {availability === 'low' ? 'Low Stock' : 'Out of Stock'}

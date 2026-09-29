@@ -311,9 +311,11 @@ export async function fetchLiveCatalog(): Promise<LiveCatalogData> {
     )
   }
 
+  // Only a FAILED query falls back to the bundled selection. A successful query
+  // with no active rows means an administrator disabled or removed every
+  // featured product in /admin/settings, and that choice must be respected.
   const featuredRows = featuredResult.error ? null : featuredResult.data
-  const featuredIds =
-    featuredRows && featuredRows.length > 0 ? featuredRows.map((row) => row.product_id) : null
+  const featuredIds = featuredRows ? featuredRows.map((row) => row.product_id) : null
 
   return {
     activeIds, product, variants, specs, images, compatibility, categoryName,

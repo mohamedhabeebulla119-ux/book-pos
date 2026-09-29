@@ -1052,6 +1052,83 @@ export type Database = {
           },
         ]
       }
+      store_settings: {
+        Row: {
+          address: string | null
+          contact_phone: string | null
+          created_at: string
+          currency: string
+          description: string | null
+          email: string | null
+          id: boolean
+          is_open: boolean
+          maintenance_mode: boolean
+          opening_hours: string | null
+          retail_enabled: boolean
+          show_banners: boolean
+          show_featured_products: boolean
+          show_new_arrivals: boolean
+          show_stock_status: boolean
+          store_name: string
+          updated_at: string
+          updated_by: string | null
+          whatsapp_number: string | null
+          wholesale_enabled: boolean
+        }
+        Insert: {
+          address?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          currency?: string
+          description?: string | null
+          email?: string | null
+          id?: boolean
+          is_open?: boolean
+          maintenance_mode?: boolean
+          opening_hours?: string | null
+          retail_enabled?: boolean
+          show_banners?: boolean
+          show_featured_products?: boolean
+          show_new_arrivals?: boolean
+          show_stock_status?: boolean
+          store_name?: string
+          updated_at?: string
+          updated_by?: string | null
+          whatsapp_number?: string | null
+          wholesale_enabled?: boolean
+        }
+        Update: {
+          address?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          currency?: string
+          description?: string | null
+          email?: string | null
+          id?: boolean
+          is_open?: boolean
+          maintenance_mode?: boolean
+          opening_hours?: string | null
+          retail_enabled?: boolean
+          show_banners?: boolean
+          show_featured_products?: boolean
+          show_new_arrivals?: boolean
+          show_stock_status?: boolean
+          store_name?: string
+          updated_at?: string
+          updated_by?: string | null
+          whatsapp_number?: string | null
+          wholesale_enabled?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           granted_at: string

@@ -6,6 +6,7 @@ import { Header } from '@/components/ui/Header'
 import { Button } from '@/components/ui/Button'
 import { Panel, Chip, formatDate } from '@/components/account/wholesaleUi'
 import { useCustomerAuth } from '@/context/CustomerAuthContext'
+import { PromoBanners, StoreClosedNotice } from '@/components/ui/PromoBanners'
 
 /**
  * The Wholesale storefront home.
@@ -25,6 +26,9 @@ export default function WholesalePage() {
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
+      <StoreClosedNotice />
+      {/* Wholesale-only promotions (slot 'wholesale'), managed in /admin/settings. */}
+      <PromoBanners slot="wholesale" />
 
       <main className="px-4 py-6">
         <div className="mb-6 text-center">

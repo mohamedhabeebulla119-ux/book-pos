@@ -15,6 +15,7 @@ import { useCart } from '@/context/CartContext'
 import { motion } from 'framer-motion'
 import { ArrowLeft, ChevronRight, Check, Star, Wrench, ShieldCheck, PackageSearch, Minus, Plus, Box } from 'lucide-react'
 import Link from 'next/link'
+import { useStoreSettings } from '@/lib/store/settings'
 
 /**
  * The product detail screen, addressed by product id rather than by route.
@@ -42,6 +43,8 @@ export function ProductDetailView({ productId }: { productId: string }) {
   const [selectedVariantId, setSelectedVariantId] = useState<string | undefined>(undefined)
   const [activeImageIndex, setActiveImageIndex] = useState(0)
   const [quantity, setQuantity] = useState(1)
+  // "Show stock status" in /admin/settings.
+  const showStock = useStoreSettings().settings.show_stock_status
 
   if (!product) {
     return (
@@ -136,9 +139,22 @@ export function ProductDetailView({ productId }: { productId: string }) {
               <span className="ml-1 text-sm font-semibold text-foreground">{product.rating}</span>
             </div>
             <span className="text-muted-foreground text-sm">({product.reviewsCount} reviews)</span>
-            <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary" /> In Stock
-            </span>
+            {/* Real availability (it previously read "In Stock" regardless). */}
+            {showStock && (
+              product.stock <= 0 ? (
+                <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-red-500">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500" /> Out of Stock
+                </span>
+              ) : product.stock <= 5 ? (
+                <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-amber-600 dark:text-amber-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Low Stock
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary" /> In Stock
+                </span>
+              )
+            )}
           </div>
 
           <div className="text-[26px] font-bold tracking-tight mb-6">{formatPrice(currentPrice)}</div>
