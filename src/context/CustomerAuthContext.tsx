@@ -8,6 +8,8 @@ import {
   fetchOwnProfile, resolveCustomerType, isVipExpired,
   type CustomerProfile, type CustomerType,
 } from '@/lib/customer/profile'
+import { resolveAccess, type CustomerAccess } from '@/lib/customer/access'
+import { clearExperience } from '@/utils/experience'
 
 /**
  * Customer session + profile state.
@@ -31,6 +33,12 @@ interface CustomerAuthValue {
   status: CustomerAuthStatus
   userId: string | null
   email: string | null
+  /**
+   * The phone number Supabase Auth VERIFIED by SMS code, as E.164 with the '+'.
+   * Null unless auth.users.phone_confirmed_at is set. Deliberately not
+   * profiles.phone, which the customer can edit freely.
+   */
+  phone: string | null
   profile: CustomerProfile | null
   /**
    * The tier this customer is priced at, mirroring
@@ -38,6 +46,12 @@ interface CustomerAuthValue {
    * 'retail'. This LABELS; it never decides a price.
    */
   customerType: CustomerType
+  /**
+   * The single access state every route guard and navigation link reads:
+   * loading / unauthenticated / error / retail / wholesale_vip. Built only from
+   * the session and profiles.customer_type — see lib/customer/access.ts.
+   */
+  access: CustomerAccess
   /** True when a VIP grant exists but has lapsed — worth telling them about. */
   vipExpired: boolean
   errorMessage: string | null
@@ -54,6 +68,7 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
   const [status, setStatus] = useState<CustomerAuthStatus>(CONFIGURED ? 'loading' : 'signed-out')
   const [userId, setUserId] = useState<string | null>(null)
   const [email, setEmail] = useState<string | null>(null)
+  const [phone, setPhone] = useState<string | null>(null)
   const [profile, setProfile] = useState<CustomerProfile | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
@@ -66,11 +81,12 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
   const applySession = useCallback(async (session: Session | null) => {
     const ticket = ++requestRef.current
     const nextUserId = session?.user?.id ?? null
+    const callerChanged = pricedForRef.current !== nextUserId
 
     // Prices are resolved per-caller by the database, so the catalog has to be
     // re-read whenever the caller changes — including on sign-out, which drops
     // a VIP customer back to public retail prices.
-    if (pricedForRef.current !== nextUserId) {
+    if (callerChanged) {
       pricedForRef.current = nextUserId
       reloadCatalog()
     }
@@ -78,14 +94,26 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
     if (!session?.user) {
       setUserId(null)
       setEmail(null)
+      setPhone(null)
       setProfile(null)
       setErrorMessage(null)
       setStatus('signed-out')
       return
     }
 
+    // A different account: drop the previous customer's profile at once rather
+    // than showing it beside the new identity until the read below returns. A
+    // token refresh for the same account keeps the current state (no flicker).
+    if (callerChanged) {
+      setProfile(null)
+      setStatus('loading')
+    }
+
     setUserId(session.user.id)
-    setEmail(session.user.email ?? null)
+    setEmail(session.user.email || null)
+    // Supabase Auth stores phone numbers without the leading '+'.
+    const verifiedPhone = session.user.phone_confirmed_at ? session.user.phone : ''
+    setPhone(verifiedPhone ? `+${verifiedPhone.replace(/^\+/, '')}` : null)
 
     try {
       // "profiles read own" restricts this to the caller's own row; the id is
@@ -132,8 +160,10 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
   const signOut = useCallback(async () => {
     if (!CONFIGURED) return
     await getSupabaseClient().auth.signOut()
-    // onAuthStateChange fires SIGNED_OUT, which clears state and reloads the
-    // catalog at public retail prices.
+    // The next person on this device chooses their customer type afresh
+    // instead of inheriting this one's. onAuthStateChange fires SIGNED_OUT,
+    // which clears the profile and reloads the catalog.
+    clearExperience()
   }, [])
 
   return (
@@ -142,8 +172,10 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
         status,
         userId,
         email,
+        phone,
         profile,
         customerType: resolveCustomerType(profile),
+        access: resolveAccess(status, resolveCustomerType(profile)),
         vipExpired: isVipExpired(profile),
         errorMessage,
         signOut,

@@ -3,17 +3,17 @@
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Header } from '@/components/ui/Header'
-import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
+import { ProfileIdentityCard } from '@/components/account/ProfileIdentityCard'
 import { useTheme } from '@/context/ThemeContext'
 import { useWishlist } from '@/context/WishlistContext'
 import { useCustomerAuth } from '@/context/CustomerAuthContext'
-import { CUSTOMER_TYPE_LABEL } from '@/lib/customer/profile'
 import { useGuestMode, endGuestSession } from '@/lib/auth/guestMode'
+import { WHOLESALE_REQUEST_PATH } from '@/lib/customer/access'
 import { clearExperience } from '@/utils/experience'
 import {
   Moon, Sun, ChevronRight, Package, CreditCard, Settings, HelpCircle, LogOut, Heart,
-  Crown, User, LogIn, Store, Repeat, LoaderCircle, FlaskConical,
+  LogIn, Store, Repeat, FlaskConical,
 } from 'lucide-react'
 
 export default function ProfilePage() {
@@ -22,13 +22,14 @@ export default function ProfilePage() {
   const { wishlist } = useWishlist()
   // Identity comes from the Supabase session and the customer's own profile row
   // under "profiles read own" — never from a constant in this file.
-  const { status, email, profile, customerType, vipExpired, signOut } = useCustomerAuth()
+  const {
+    status, userId, email, phone, profile, customerType, access, vipExpired, signOut, refresh,
+  } = useCustomerAuth()
   /** A testing label, deliberately kept out of everything that decides pricing. */
   const guest = useGuestMode()
 
-  const signedIn = status === 'signed-in'
-  const displayName = profile?.full_name?.trim() || 'Your account'
-  const displayEmail = profile?.email || email
+  /** 'error' is still a session — only the profile read failed. */
+  const hasSession = status === 'signed-in' || status === 'error'
 
   /** Returns to the entry screen so the customer can pick the other experience. */
   function switchExperience() {
@@ -51,15 +52,11 @@ export default function ProfilePage() {
     { icon: CreditCard, label: 'Payment Methods', description: 'Manage your saved cards', chip: CHIP },
     { icon: Settings, label: 'Account Settings', description: 'Personal details and security', chip: CHIP },
     { icon: HelpCircle, label: 'Help & Support', description: 'FAQ and contact information', chip: CHIP },
-    {
-      icon: Store,
-      label: 'Wholesale',
-      description: customerType === 'wholesale_vip'
-        ? 'Wholesale pricing is active'
-        : 'Apply for business pricing',
-      chip: CHIP,
-      href: '/wholesale',
-    },
+    // Retail accounts are never linked into the Wholesale storefront — only to
+    // the request page in their own area. Decided by the database tier.
+    access === 'wholesale_vip'
+      ? { icon: Store, label: 'Wholesale', description: 'Wholesale pricing is active', chip: CHIP, href: '/wholesale' }
+      : { icon: Store, label: 'Wholesale access', description: 'Apply for business pricing', chip: CHIP, href: WHOLESALE_REQUEST_PATH },
   ]
 
   return (
@@ -68,40 +65,20 @@ export default function ProfilePage() {
 
       <main className="px-4 py-6">
         {/* Profile Header */}
-        {status === 'loading' ? (
-          <div className="flex items-center justify-center gap-2.5 mb-6 bg-surface border border-mint/80 dark:border-border rounded-[26px] p-6 shadow-card text-sm text-muted-foreground">
-            <LoaderCircle size={17} className="animate-spin motion-reduce:animate-none" /> Loading your account…
-          </div>
-        ) : signedIn ? (
-          <div className="mb-6 bg-surface border border-mint/80 dark:border-border rounded-[26px] p-4 shadow-card">
-            <div className="flex items-center gap-4">
-              <Avatar name={displayName} size={62} />
-              <div className="min-w-0">
-                <h1 className="text-xl font-bold tracking-tight truncate">{displayName}</h1>
-                {displayEmail && (
-                  <p className="text-muted-foreground text-[13px] truncate">{displayEmail}</p>
-                )}
-              </div>
-            </div>
-            {/* The tier the DATABASE resolved, not the experience chosen on the
-                entry screen. An expired VIP grant is shown as retail, because
-                that is what the customer is actually charged. */}
-            <div className="mt-3.5 flex flex-wrap items-center gap-2">
-              <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap ${
-                customerType === 'wholesale_vip'
-                  ? 'border-mint-deep bg-primary-soft text-primary'
-                  : 'border-border bg-muted text-muted-foreground'
-              }`}>
-                {customerType === 'wholesale_vip' ? <Crown size={12} /> : <User size={12} />}
-                {CUSTOMER_TYPE_LABEL[customerType]}
-              </span>
-              {vipExpired && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-600 dark:text-amber-400 whitespace-nowrap">
-                  Wholesale pricing expired
-                </span>
-              )}
-            </div>
-          </div>
+        {status === 'loading' || hasSession ? (
+          // Keyed by account so an open edit form never carries over to a
+          // different customer after an account switch.
+          <ProfileIdentityCard
+            key={userId ?? 'loading'}
+            status={status}
+            userId={userId}
+            profile={profile}
+            email={email}
+            phone={phone}
+            customerType={customerType}
+            vipExpired={vipExpired}
+            onReload={refresh}
+          />
         ) : guest ? (
           /* Guest Test Mode. Rendered as a TEST artefact rather than an account:
              no avatar, no tier chip, no name — because there is no customer
@@ -210,7 +187,7 @@ export default function ProfilePage() {
         </button>
 
         {/* Sign out */}
-        {signedIn && (
+        {hasSession && (
           <button
             onClick={() => void signOut()}
             className="w-full flex items-center justify-center gap-2 p-4 text-red-500 font-semibold bg-red-500/8 border border-red-500/20 hover:bg-red-500/15 active:scale-[0.98] rounded-[26px] transition-all duration-300 min-h-[44px]"

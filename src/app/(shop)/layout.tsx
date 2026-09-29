@@ -4,6 +4,7 @@ import { CustomerAuthProvider } from "@/context/CustomerAuthContext";
 import { CartProvider } from "@/context/CartContext";
 import { WishlistProvider } from "@/context/WishlistContext";
 import { AppShell } from "@/components/ui/AppShell";
+import { CustomerRouteGuard } from "@/components/account/CustomerRouteGuard";
 import { NativeOAuthListener } from "@/lib/auth/nativeOAuthListener";
 import "../globals.css";
 
@@ -38,7 +39,11 @@ export default function RootLayout({
             <NativeOAuthListener />
             <CartProvider>
               <WishlistProvider>
-                <AppShell>{children}</AppShell>
+                {/* Nothing store-side — content or navigation — renders until
+                    the account's customer type decides this route is allowed. */}
+                <CustomerRouteGuard>
+                  <AppShell>{children}</AppShell>
+                </CustomerRouteGuard>
               </WishlistProvider>
             </CartProvider>
           </CustomerAuthProvider>

@@ -21,7 +21,6 @@ import {
 } from '@/lib/auth/google'
 import { parsePhone, formatE164, DEFAULT_COUNTRY_ISO } from '@/lib/auth/phone'
 import { endGuestSession } from '@/lib/auth/guestMode'
-import { getExperience } from '@/utils/experience'
 
 /**
  * Customer authentication: phone number + SMS one-time code.
@@ -74,7 +73,7 @@ function GoogleGlyph() {
 
 export default function CustomerSignInPage() {
   const router = useRouter()
-  const { status, refresh } = useCustomerAuth()
+  const { status, customerType, refresh } = useCustomerAuth()
 
   const [step, setStep] = useState<Step>({ kind: 'phone' })
   const [availability, setAvailability] = useState<PhoneAuthAvailability>('checking')
@@ -96,10 +95,15 @@ export default function CustomerSignInPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
-  // Already signed in? Nothing to do here.
+  // Already signed in? Nothing to do here — go to the storefront the DATABASE
+  // assigns this account. Only from the first step: once a code is being
+  // verified, submitCode()/submitProfile() route themselves, and leaving early
+  // would skip the first-time "Almost there" name step.
   useEffect(() => {
-    if (status === 'signed-in') router.replace(getExperience() === 'wholesale' ? '/wholesale' : '/')
-  }, [status, router])
+    if (status === 'signed-in' && step.kind === 'phone') {
+      router.replace(resolvePostSignInDestination(customerType))
+    }
+  }, [status, step.kind, customerType, router])
 
   // Ask the project what it can actually do, rather than assuming. Aborted on
   // unmount so a slow reply never writes into a screen that has gone.
@@ -288,8 +292,9 @@ export default function CustomerSignInPage() {
         return
       }
       endGuestSession()
+      // The "already signed in" effect above routes by the account's
+      // database tier as soon as the refreshed profile arrives.
       await refresh()
-      router.replace(getExperience() === 'wholesale' ? '/wholesale' : '/')
     } catch {
       setFormError('Could not reach the server. Check your connection and try again.')
     } finally {

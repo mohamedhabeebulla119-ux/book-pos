@@ -1,5 +1,6 @@
 import { getSupabaseClient } from '@/lib/supabase/client'
 import { getExperience } from '@/utils/experience'
+import { WHOLESALE_REQUEST_PATH } from '@/lib/customer/access'
 
 /**
  * The signed-in customer's own profile.
@@ -81,13 +82,14 @@ export function resolveCustomerType(
  * signed them in.
  *
  * The database's answer decides, not the card tapped on the entry screen: an
- * approved wholesale customer goes to the wholesale screens wherever they
- * came from, and a retail customer who chose Wholesale lands on the gateway,
- * which explains that access is granted by review.
+ * approved wholesale customer goes to the Wholesale storefront wherever they
+ * came from, and a retail customer who chose Wholesale stays in the Retail
+ * area, on the page where they can apply for access. Route protection
+ * (lib/customer/access.ts) enforces the same split on every later navigation.
  */
 export function resolvePostSignInDestination(customerType: CustomerType): string {
   if (customerType === 'wholesale_vip') return '/wholesale'
-  return getExperience() === 'wholesale' ? '/wholesale' : '/'
+  return getExperience() === 'wholesale' ? WHOLESALE_REQUEST_PATH : '/'
 }
 
 /** True when the profile carries a VIP grant that has since lapsed. */

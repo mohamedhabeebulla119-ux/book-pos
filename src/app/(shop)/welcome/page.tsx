@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 import { setExperience, type ShoppingExperience } from '@/utils/experience'
 import { startGuestSession, type GuestExperience } from '@/lib/auth/guestMode'
 import { useCustomerAuth } from '@/context/CustomerAuthContext'
-import { isSupabaseConfigured } from '@/lib/supabase/client'
+import { resolvePostSignInDestination } from '@/lib/customer/profile'
 
 /**
  * Customer entry: "How would you like to continue?"
@@ -29,7 +29,6 @@ interface ExperienceOption {
   description: string
   icon: typeof ShoppingBag
   cta: string
-  destination: string
   points: readonly string[]
   /** Retail leads with the house green; wholesale sits one shade deeper. */
   accent: string
@@ -43,7 +42,6 @@ const OPTIONS: readonly ExperienceOption[] = [
     description: 'Shop Apple products and accessories for personal purchases.',
     icon: ShoppingBag,
     cta: 'Continue as Retail Customer',
-    destination: '/',
     points: ['Full Apple catalogue', 'Genuine replacement parts', 'Standard retail pricing'],
     accent: 'from-primary-soft to-transparent',
     iconChip: 'bg-well-strong border-mint-deep text-primary',
@@ -54,7 +52,6 @@ const OPTIONS: readonly ExperienceOption[] = [
     description: 'Access business purchasing, bulk orders and wholesale pricing.',
     icon: Store,
     cta: 'Continue as Wholesale Customer',
-    destination: '/wholesale',
     points: ['Business purchasing', 'Bulk and repeat orders', 'Wholesale pricing once approved'],
     accent: 'from-mint to-transparent',
     iconChip: 'bg-mint border-mint-deep text-primary-strong',
@@ -64,18 +61,17 @@ const OPTIONS: readonly ExperienceOption[] = [
 export default function WelcomePage() {
   const router = useRouter()
   const shouldReduceMotion = useReducedMotion()
-  const { status } = useCustomerAuth()
+  const { status, customerType } = useCustomerAuth()
 
   /**
-   * Both cards go through the same phone sign-in. The choice is stored first,
-   * so once the code is verified resolvePostSignInDestination() sends the
-   * customer on to option.destination — and a Wholesale choice still lands on
-   * the gateway, where the database decides whether they hold VIP pricing.
+   * Both cards go through the same phone sign-in. The card is remembered only
+   * as a preference; where the customer lands afterwards is decided by the
+   * account's database tier (resolvePostSignInDestination), so choosing
+   * Wholesale never opens the Wholesale storefront to a retail account.
    */
   function choose(option: ExperienceOption) {
     setExperience(option.id)
-    const needsSignIn = isSupabaseConfigured() && status !== 'signed-in'
-    router.replace(needsSignIn ? '/account/sign-in' : option.destination)
+    router.replace(status === 'signed-in' ? resolvePostSignInDestination(customerType) : '/account/sign-in')
   }
 
   /**

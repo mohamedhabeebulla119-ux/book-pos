@@ -7,6 +7,8 @@ import { motion } from 'framer-motion'
 import { Home, Grid, Search, ShoppingBag, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useCart } from '@/context/CartContext'
+import { useCustomerAuth } from '@/context/CustomerAuthContext'
+import { homeFor } from '@/lib/customer/access'
 
 /** Movement required before the bar changes state, so a jittery finger or a
  *  rubber-band bounce doesn't toggle it. */
@@ -59,9 +61,11 @@ export function BottomNavigation() {
   const pathname = usePathname()
   const { cartCount } = useCart()
   const compact = useScrollingDown()
+  // "Home" is the account's own storefront: Retail home or Wholesale home.
+  const { access } = useCustomerAuth()
 
   const navItems = [
-    { name: 'Home', href: '/', icon: Home },
+    { name: 'Home', href: homeFor(access), icon: Home },
     { name: 'Shop', href: '/categories', icon: Grid },
     { name: 'Search', href: '/search', icon: Search },
     { name: 'Cart', href: '/cart', icon: ShoppingBag, badge: cartCount },

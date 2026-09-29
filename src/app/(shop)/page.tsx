@@ -1,7 +1,5 @@
 "use client"
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { Header } from '@/components/ui/Header'
 import { CategoryCard } from '@/components/ui/CategoryCard'
 import { ProductCard } from '@/components/ui/ProductCard'
@@ -11,8 +9,6 @@ import { Button } from '@/components/ui/Button'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { ArrowRight, Search, Wrench, Smartphone, ShieldCheck, Zap, Headphones, ShoppingBag, Truck } from 'lucide-react'
-import { hasCompletedOnboarding } from '@/utils/onboarding'
-import { getExperience } from '@/utils/experience'
 
 const EASE = [0.22, 1, 0.36, 1] as const
 
@@ -26,25 +22,12 @@ const quickCategories = [
   { label: 'Accessories', href: '/categories/accessories' },
 ]
 
+/**
+ * The Retail storefront home. Reaching it at all is decided by
+ * CustomerRouteGuard (signed in, and resolved as retail by the database); a
+ * Wholesale VIP is sent to /wholesale before this renders.
+ */
 export default function Home() {
-  const router = useRouter()
-  const [readyToRender, setReadyToRender] = useState(false)
-
-  // Entry gates, in order: onboarding, then the experience choice, then the
-  // store. Both flags live in localStorage and are read here rather than during
-  // render, so the exported HTML never bakes in "already chosen".
-  useEffect(() => {
-    if (!hasCompletedOnboarding()) {
-      router.replace('/onboarding')
-      return
-    }
-    if (getExperience() === null) {
-      router.replace('/welcome')
-      return
-    }
-    setReadyToRender(true)
-  }, [router])
-
   // Curated in Supabase (featured_products), resolved through the canonical
   // catalog so duplicate ids use the authoritative deviceData definitions.
   // Falls back to the bundled selection when Supabase is unavailable.
@@ -56,10 +39,6 @@ export default function Home() {
     { title: 'Replacement Parts', subtitle: 'Displays & Batteries', image: '/images/categories/replacement-parts.jpg', href: '/categories/parts' },
     { title: 'Accessories', subtitle: 'Cases & Chargers', image: '/images/categories/accessories.jpg', href: '/categories/accessories' }
   ]
-
-  if (!readyToRender) {
-    return <div className="min-h-screen bg-background" />
-  }
 
   return (
     <div className="flex flex-col min-h-screen">

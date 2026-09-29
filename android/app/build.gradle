@@ -1,5 +1,19 @@
 apply plugin: 'com.android.application'
 
+// Production signing credentials live OUTSIDE this repository. By default they
+// are read from ~/apple-expert-release-key/keystore.properties; set
+// APPLE_EXPERT_KEYSTORE_PROPERTIES to point somewhere else (e.g. on a CI box).
+// Without that file, release builds come out unsigned rather than falling back
+// to the debug key.
+def releaseSigningFile = file(System.getenv('APPLE_EXPERT_KEYSTORE_PROPERTIES')
+        ?: "${System.getProperty('user.home')}/apple-expert-release-key/keystore.properties")
+def releaseSigning = new Properties()
+if (releaseSigningFile.exists()) {
+    releaseSigningFile.withInputStream { releaseSigning.load(it) }
+} else {
+    logger.warn("Release signing file not found at ${releaseSigningFile}; release builds will be unsigned.")
+}
+
 android {
     namespace = "com.appleexpert.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,8 +30,20 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (releaseSigningFile.exists()) {
+                storeFile file(releaseSigning.getProperty('storeFile'))
+                storePassword releaseSigning.getProperty('storePassword')
+                keyAlias releaseSigning.getProperty('keyAlias')
+                keyPassword releaseSigning.getProperty('keyPassword')
+            }
+        }
+    }
     buildTypes {
         release {
+            debuggable false
+            signingConfig releaseSigningFile.exists() ? signingConfigs.release : null
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
