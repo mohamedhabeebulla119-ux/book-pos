@@ -1,5 +1,6 @@
 import { Crown, User, KeyRound, ShieldCheck, ShieldQuestion } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { VipBadge } from '@/components/account/VipBadge'
 import type { VipStatus } from '@/lib/admin/customers'
 import { ACCOUNT_ROLE_LABEL, type AccountRole } from '@/lib/admin/users'
 
@@ -13,13 +14,7 @@ const PILL = 'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 t
  * a badge saying "Wholesale VIP" there would contradict the till.
  */
 export function CustomerTypeBadge({ status }: { status: VipStatus }) {
-  if (status === 'vip') {
-    return (
-      <span className={cn(PILL, 'border-mint-deep bg-primary-soft text-primary')}>
-        <Crown size={12} /> Wholesale VIP
-      </span>
-    )
-  }
+  if (status === 'vip') return <VipBadge label="Wholesale VIP" />
   if (status === 'vip_expired') {
     return (
       <span className={cn(PILL, 'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400')}>

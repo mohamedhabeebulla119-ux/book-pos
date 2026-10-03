@@ -1,10 +1,10 @@
 "use client"
 
-import Link from 'next/link'
-import { Store, Crown, ShieldCheck, ArrowRight, CalendarDays } from 'lucide-react'
+import { Crown, CalendarDays } from 'lucide-react'
 import { Header } from '@/components/ui/Header'
-import { Button } from '@/components/ui/Button'
-import { Panel, Chip, formatDate } from '@/components/account/wholesaleUi'
+import { formatDate } from '@/components/account/wholesaleUi'
+import { VipBadge } from '@/components/account/VipBadge'
+import { HomeProductSections } from '@/components/home/HomeProductSections'
 import { useCustomerAuth } from '@/context/CustomerAuthContext'
 import { PromoBanners, StoreClosedNotice } from '@/components/ui/PromoBanners'
 
@@ -21,59 +21,57 @@ import { PromoBanners, StoreClosedNotice } from '@/components/ui/PromoBanners'
  * withholds from every other caller.
  */
 export default function WholesalePage() {
-  const { profile } = useCustomerAuth()
+  const { profile, isWholesaleVip } = useCustomerAuth()
+  const firstName = profile?.full_name?.trim().split(/\s+/)[0]
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col pb-10">
       <Header />
       <StoreClosedNotice />
+
+      {/* Welcome + VIP identity */}
+      <section className="px-4 pt-6">
+        <div className="max-w-4xl mx-auto">
+          {isWholesaleVip && (
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <p className="text-[13px] font-medium text-muted-foreground">
+                Welcome back{firstName ? `, ${firstName}` : ''}
+              </p>
+              <VipBadge />
+            </div>
+          )}
+          <h1 className="text-[28px] font-bold leading-tight tracking-tight text-foreground">Wholesale</h1>
+          <p className="mt-1 text-[13.5px] leading-relaxed text-muted-foreground">
+            Business purchasing, bulk orders and wholesale pricing.
+          </p>
+
+          {/* Compact VIP status — the database resolves every price; this only says so. */}
+          {isWholesaleVip && (
+            <div className="mt-4 flex items-start gap-3 rounded-[22px] border border-mint/80 dark:border-border bg-surface px-4 py-3 shadow-card">
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-cta text-white shadow-glow" aria-hidden="true">
+                <Crown size={16} strokeWidth={2.2} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[14px] font-semibold tracking-tight text-foreground">Wholesale VIP Active</p>
+                <p className="text-[12.5px] leading-snug text-muted-foreground">
+                  VIP pricing is automatically applied to eligible products.
+                </p>
+                {profile?.vip_expires_at && (
+                  <p className="mt-1 flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
+                    <CalendarDays size={12} className="shrink-0" />
+                    Active until {formatDate(profile.vip_expires_at)}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+
       {/* Wholesale-only promotions (slot 'wholesale'), managed in /admin/settings. */}
       <PromoBanners slot="wholesale" />
 
-      <main className="px-4 py-6">
-        <div className="mb-6 text-center">
-          <span className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-mint-deep bg-mint text-primary-strong shadow-card">
-            <Store size={26} strokeWidth={1.9} />
-          </span>
-          <h1 className="text-[26px] font-bold leading-tight tracking-tight text-foreground text-balance">
-            Wholesale
-          </h1>
-          <p className="mx-auto mt-1.5 max-w-xs text-[13.5px] leading-relaxed text-muted-foreground text-balance">
-            Business purchasing, bulk orders and wholesale pricing.
-          </p>
-        </div>
-
-        <div className="space-y-4">
-          <Panel>
-            <Chip icon={Crown} tone="primary" />
-            <h2 className="mb-2 text-lg font-bold tracking-tight text-foreground">
-              Wholesale access is active
-            </h2>
-            <p className="mb-1.5 text-sm leading-relaxed text-muted-foreground">
-              {profile?.full_name ? `${profile.full_name}, your` : 'Your'} account is on Wholesale
-              VIP pricing. Wholesale prices are already applied throughout the store — you will
-              see them on every product that has one, and the retail price everywhere else.
-            </p>
-            {profile?.vip_expires_at && (
-              <p className="mt-3 flex items-center gap-2 rounded-xl border border-mint/70 dark:border-border bg-card px-3.5 py-2.5 text-[12.5px] text-muted-foreground">
-                <CalendarDays size={13} className="shrink-0" />
-                Your wholesale pricing runs until {formatDate(profile.vip_expires_at)}.
-              </p>
-            )}
-            <Link href="/categories" className="mt-5 block">
-              <Button fullWidth size="lg">
-                Start shopping
-                <ArrowRight size={16} className="ml-2" />
-              </Button>
-            </Link>
-          </Panel>
-          <p className="flex items-start gap-2 px-1 text-[11.5px] leading-relaxed text-muted-foreground">
-            <ShieldCheck size={13} className="mt-0.5 shrink-0" />
-            Wholesale prices are resolved by the database for your account. They are never
-            calculated on this device.
-          </p>
-        </div>
-      </main>
+      <HomeProductSections />
     </div>
   )
 }

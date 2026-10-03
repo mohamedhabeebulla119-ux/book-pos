@@ -1,16 +1,31 @@
 "use client"
 
 import React, { createContext, useCallback, useContext, useState, useEffect } from 'react'
-import { CartItem, Product, ProductVariant } from '@/types'
-import { useCatalogProducts } from '@/lib/catalog'
+import { CartItem, Product, ProductVariant, WarrantyOption } from '@/types'
+import { useCatalogProducts, resolveWarrantyOption, warrantyLabel } from '@/lib/catalog'
+
+/** How a cart line's warranty currently stands, resolved against the live catalog. */
+export interface CartLineWarranty {
+  label: string
+  months: number
+  /** Current add-on in rupees (0 when included). */
+  addOn: number
+  /** True when the chosen option has since been withdrawn by the store. */
+  unavailable: boolean
+}
 
 interface CartContextType {
   cart: CartItem[]
-  addToCart: (product: Product, variant?: ProductVariant, quantity?: number) => void
+  addToCart: (product: Product, variant?: ProductVariant, quantity?: number, warranty?: WarrantyOption) => void
   removeFromCart: (id: string) => void
   updateQuantity: (id: string, quantity: number) => void
+  /** Empties the cart — after an order has been placed. */
+  clearCart: () => void
+  /** The line's chosen warranty, re-resolved against the live catalog; null when it has none. */
+  warrantyFor: (item: CartItem) => CartLineWarranty | null
   /**
-   * The current unit price for a line, resolved from the live catalog.
+   * The current unit price for a line — product price plus any warranty
+   * add-on — resolved from the live catalog.
    *
    * Use this instead of `item.product.price` / `item.variant.price` anywhere a
    * cart price is displayed or summed — see the note on the provider.
@@ -61,10 +76,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }, [cart, isMounted])
 
-  const addToCart = (product: Product, variant?: ProductVariant, quantity = 1) => {
+  const addToCart = (product: Product, variant?: ProductVariant, quantity = 1, warranty?: WarrantyOption) => {
     setCart(prev => {
-      // Create a unique ID combining product ID and variant ID (if any)
-      const cartItemId = variant ? `${product.id}-${variant.id}` : product.id
+      // Create a unique ID combining product ID and variant ID (if any). A
+      // different warranty is a different line: "display + 3 months" and
+      // "display + 6 months" are priced differently.
+      const baseId = variant ? `${product.id}-${variant.id}` : product.id
+      const cartItemId = warranty ? `${baseId}~w${warranty.id}` : baseId
       
       const existingItem = prev.find(item => item.id === cartItemId)
       if (existingItem) {
@@ -74,9 +92,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             : item
         )
       }
-      return [...prev, { id: cartItemId, product, variant, quantity }]
+      return [...prev, {
+        id: cartItemId, product, variant, quantity,
+        ...(warranty && {
+          warrantyOptionId: warranty.id,
+          warrantySnapshot: { months: warranty.months, label: warrantyLabel(product, warranty), addOn: warranty.addOn },
+        }),
+      }]
     })
   }
+
+  const clearCart = () => setCart([])
 
   const removeFromCart = (id: string) => {
     setCart(prev => prev.filter(item => item.id !== id))
@@ -98,19 +124,44 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
    * live overlay (they are keyed back through legacy_key), so a variant line
    * resolves to its own current price rather than the product-level one.
    */
+  const warrantyFor = useCallback(
+    (item: CartItem): CartLineWarranty | null => {
+      if (!item.warrantyOptionId) return null
+      const snapshot = item.warrantySnapshot
+      const live = products.find((p) => p.id === item.product.id)
+      // Until warranty data has loaded (or if it could not), describe the line
+      // as chosen. The amount is still re-resolved by place_order().
+      if (!live?.warrantyPlan) {
+        return snapshot ? { ...snapshot, unavailable: false } : null
+      }
+      const option = resolveWarrantyOption(live, item.warrantyOptionId)
+      if (!option) {
+        return {
+          label: snapshot?.label ?? 'Warranty',
+          months: snapshot?.months ?? 0,
+          addOn: 0,
+          unavailable: true,
+        }
+      }
+      return { label: warrantyLabel(live, option), months: option.months, addOn: option.addOn, unavailable: false }
+    },
+    [products]
+  )
+
   const unitPrice = useCallback(
     (item: CartItem): number => {
       const stored = item.variant?.price ?? item.product.price
       const live = products.find((p) => p.id === item.product.id)
-      if (!live) return stored
+      const addOn = warrantyFor(item)?.addOn ?? 0
+      if (!live) return stored + addOn
 
       if (item.variant) {
         const liveVariant = live.variants?.find((v) => v.id === item.variant!.id)
-        return liveVariant ? liveVariant.price : stored
+        return (liveVariant ? liveVariant.price : stored) + addOn
       }
-      return live.price
+      return live.price + addOn
     },
-    [products]
+    [products, warrantyFor]
   )
 
   const cartTotal = cart.reduce(
@@ -122,7 +173,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <CartContext.Provider
-      value={{ cart, addToCart, removeFromCart, updateQuantity, unitPrice, cartTotal, cartCount }}
+      value={{ cart, addToCart, removeFromCart, updateQuantity, clearCart, warrantyFor, unitPrice, cartTotal, cartCount }}
     >
       {children}
     </CartContext.Provider>

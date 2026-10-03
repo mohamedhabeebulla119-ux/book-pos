@@ -47,7 +47,7 @@ export default function ProfilePage() {
   const CHIP = 'bg-well-strong border border-mint-deep text-primary'
 
   const menuItems = [
-    { icon: Package, label: 'My Orders', description: 'View and track your orders', chip: CHIP },
+    { icon: Package, label: 'My Orders', description: 'View and track your orders', chip: CHIP, href: '/orders' },
     { icon: Heart, label: 'Wishlist', description: `${wishlist.length} saved item${wishlist.length === 1 ? '' : 's'}`, chip: CHIP, href: '/wishlist' },
     { icon: CreditCard, label: 'Payment Methods', description: 'Manage your saved cards', chip: CHIP },
     { icon: Settings, label: 'Account Settings', description: 'Personal details and security', chip: CHIP },

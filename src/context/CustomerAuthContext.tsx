@@ -52,6 +52,12 @@ interface CustomerAuthValue {
    * the session and profiles.customer_type — see lib/customer/access.ts.
    */
   access: CustomerAccess
+  /**
+   * `access === 'wholesale_vip'` — the one flag the VIP identity badges read.
+   * False while loading, signed out or on a profile-read error, so the UI
+   * never shows a VIP badge before the database has confirmed the tier.
+   */
+  isWholesaleVip: boolean
   /** True when a VIP grant exists but has lapsed — worth telling them about. */
   vipExpired: boolean
   errorMessage: string | null
@@ -166,6 +172,9 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
     clearExperience()
   }, [])
 
+  const customerType = resolveCustomerType(profile)
+  const access = resolveAccess(status, customerType)
+
   return (
     <CustomerAuthContext.Provider
       value={{
@@ -174,8 +183,9 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
         email,
         phone,
         profile,
-        customerType: resolveCustomerType(profile),
-        access: resolveAccess(status, resolveCustomerType(profile)),
+        customerType,
+        access,
+        isWholesaleVip: access === 'wholesale_vip',
         vipExpired: isVipExpired(profile),
         errorMessage,
         signOut,

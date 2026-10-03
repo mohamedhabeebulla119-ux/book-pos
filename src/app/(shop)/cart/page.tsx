@@ -1,14 +1,20 @@
 "use client"
 import { formatPrice } from '@/utils/formatPrice'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { Header } from '@/components/ui/Header'
 import { Button } from '@/components/ui/Button'
 import { useCart } from '@/context/CartContext'
 import { useWishlist } from '@/context/WishlistContext'
+import { useCustomerAuth } from '@/context/CustomerAuthContext'
+import { VipBadge } from '@/components/account/VipBadge'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Minus, Plus, Trash2, ShoppingBag, Star, Heart, ArrowRight, Box } from 'lucide-react'
+import { Minus, Plus, Trash2, ShoppingBag, Star, Heart, ArrowRight, Box, ShieldCheck, AlertCircle, LoaderCircle, CheckCircle2 } from 'lucide-react'
 import type { CartItem } from '@/types'
+import { ConditionChip } from '@/components/product/ProductConditionWarranty'
+import { placeOrder, type PlacedOrder } from '@/lib/customer/orders'
+import { centsToRupees } from '@/lib/catalog'
 
 /**
  * The one line under the product name that tells the customer exactly which
@@ -36,12 +42,13 @@ function fillsFrame(src?: string): boolean {
 }
 
 function CartItemCard({ item }: { item: CartItem }) {
-  const { removeFromCart, updateQuantity, unitPrice: resolveUnitPrice } = useCart()
+  const { removeFromCart, updateQuantity, unitPrice: resolveUnitPrice, warrantyFor } = useCart()
   const { isWishlisted, toggleWishlist } = useWishlist()
 
   // Resolved from the live catalog, not from the copy frozen into localStorage
   // when the line was added, so the cart agrees with the card and the detail page.
   const unitPrice = resolveUnitPrice(item)
+  const warranty = warrantyFor(item)
   const lineTotal = unitPrice * item.quantity
   const selection = describeSelection(item)
   const wishlisted = isWishlisted(item.product.id)
@@ -108,6 +115,21 @@ function CartItemCard({ item }: { item: CartItem }) {
           </p>
         )}
 
+        <ConditionChip product={item.product} className="mt-1.5" />
+
+        {warranty && (
+          <p className={`mt-1.5 flex items-center gap-1.5 text-xs ${warranty.unavailable ? 'text-red-500' : 'text-muted-foreground'}`}>
+            {warranty.unavailable
+              ? <AlertCircle size={13} className="shrink-0" />
+              : <ShieldCheck size={13} className="shrink-0 text-primary" />}
+            <span className="truncate">
+              {warranty.unavailable
+                ? `${warranty.label} is no longer offered — remove this item and choose again`
+                : `${warranty.label} · ${warranty.addOn === 0 ? 'Included' : `+${formatPrice(warranty.addOn)}`}`}
+            </span>
+          </p>
+        )}
+
         <div className="flex items-end justify-between gap-2 mt-3">
           <div className="min-w-0">
             {item.quantity > 1 && (
@@ -154,7 +176,51 @@ function CartItemCard({ item }: { item: CartItem }) {
 }
 
 export default function CartPage() {
-  const { cart, cartTotal, cartCount } = useCart()
+  const { cart, cartTotal, cartCount, clearCart, warrantyFor } = useCart()
+  const { isWholesaleVip } = useCustomerAuth()
+  const [placing, setPlacing] = useState(false)
+  const [orderError, setOrderError] = useState<string | null>(null)
+  const [placed, setPlaced] = useState<PlacedOrder | null>(null)
+
+  const blocked = cart.some((item) => warrantyFor(item)?.unavailable)
+
+  /** The database prices every line again; the total it returns is the one recorded. */
+  async function submitOrder() {
+    setPlacing(true)
+    setOrderError(null)
+    try {
+      const order = await placeOrder(cart)
+      clearCart()
+      setPlaced(order)
+    } catch (err) {
+      setOrderError(err instanceof Error ? err.message : 'Your order could not be placed. Please try again.')
+    } finally {
+      setPlacing(false)
+    }
+  }
+
+  if (placed) {
+    return (
+      <div className="flex flex-col min-h-screen">
+        <Header />
+        <main className="flex-1 flex flex-col items-center justify-center text-center px-6 py-16">
+          <div className="w-24 h-24 rounded-full bg-well-cool border border-mint-deep shadow-card flex items-center justify-center mb-6">
+            <CheckCircle2 size={40} strokeWidth={1.6} className="text-primary" />
+          </div>
+          <h1 className="text-[22px] font-bold tracking-tight mb-1.5">Order placed</h1>
+          <p className="text-sm text-muted-foreground mb-1">Order {placed.orderNumber}</p>
+          <p className="text-lg font-bold tracking-tight mb-2">{formatPrice(centsToRupees(placed.totalCents))}</p>
+          <p className="text-[13px] text-muted-foreground mb-8 max-w-xs leading-relaxed">
+            We will contact you to confirm delivery and payment.
+          </p>
+          <div className="flex w-full max-w-xs flex-col gap-2.5">
+            <Link href="/orders"><Button fullWidth size="lg">View my orders</Button></Link>
+            <Link href="/categories"><Button fullWidth variant="secondary">Continue shopping</Button></Link>
+          </div>
+        </main>
+      </div>
+    )
+  }
 
   if (cart.length === 0) {
     return (
@@ -202,6 +268,14 @@ export default function CartPage() {
 
         {/* Order summary — only figures that actually exist */}
         <div className="mt-5 bg-surface border border-mint/80 dark:border-border rounded-[26px] p-5 shadow-card">
+          {/* A label only: every line above is already priced by the database
+              for this account (my_effective_prices), never on this device. */}
+          {isWholesaleVip && (
+            <div className="flex flex-wrap items-center gap-2 mb-4 pb-4 border-b border-mint/70 dark:border-border">
+              <VipBadge />
+              <span className="text-[12px] text-muted-foreground">Wholesale VIP pricing applied where set</span>
+            </div>
+          )}
           <div className="flex justify-between items-center mb-3 text-sm text-muted-foreground">
             <span>Subtotal</span>
             <span className="font-semibold text-foreground">{formatPrice(cartTotal)}</span>
@@ -214,7 +288,17 @@ export default function CartPage() {
             <span>Total</span>
             <span>{formatPrice(cartTotal)}</span>
           </div>
+          <p className="mt-3 text-[11.5px] leading-relaxed text-muted-foreground">
+            Prices and warranty add-ons are confirmed by our system when you place the order.
+          </p>
         </div>
+
+        {orderError && (
+          <div role="alert" className="mt-4 flex items-start gap-2.5 rounded-2xl border border-red-500/25 bg-red-500/8 px-4 py-3">
+            <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-500" />
+            <p className="text-[13px] text-foreground">{orderError}</p>
+          </div>
+        )}
       </main>
 
       {/* Floating purchase panel — sits above the bottom navigation, sharing its
@@ -242,8 +326,15 @@ export default function CartPage() {
             </span>
           </Link>
 
-          <Button size="lg" className="shrink-0 h-11 min-[360px]:h-12 px-6 min-[360px]:px-8 text-[15px]">
-            Pay
+          <Button
+            size="lg"
+            disabled={placing || blocked}
+            onClick={() => void submitOrder()}
+            className="shrink-0 h-11 min-[360px]:h-12 px-5 min-[360px]:px-6 text-[15px]"
+          >
+            {placing
+              ? <><LoaderCircle size={16} className="mr-1.5 animate-spin motion-reduce:animate-none" />Placing…</>
+              : 'Place order'}
           </Button>
         </div>
       </div>

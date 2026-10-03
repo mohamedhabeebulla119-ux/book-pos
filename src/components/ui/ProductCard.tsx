@@ -9,7 +9,10 @@ import { Button } from './Button'
 import { Badge, statusTone } from './Badge'
 import { useCart } from '@/context/CartContext'
 import { useWishlist } from '@/context/WishlistContext'
-import { displayPrice, hasVariantPricing, productHref } from '@/lib/catalog'
+import { displayPrice, displayPriceIsVip, hasVariantPricing, hasWarrantyChoice, productHref } from '@/lib/catalog'
+import { ConditionChip } from '@/components/product/ProductConditionWarranty'
+import { useCustomerAuth } from '@/context/CustomerAuthContext'
+import { VipPriceTag } from '@/components/account/VipBadge'
 import { getCategoryTheme } from '@/lib/categoryTheme'
 import { getIphoneCardTone } from '@/lib/iphoneCardTheme'
 import { getProductSpecChips } from '@/lib/productSpecChips'
@@ -54,9 +57,14 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
   const isPartSelector = product.id === 'part-iphone-15-pro-display' || product.id === 'part-iphone-15-pro-battery'
   const hasVariants = hasVariantPricing(product)
   const minPrice = displayPrice(product)
+  // Both must hold: a database-confirmed VIP, and this number being their VIP row.
+  const showVipPrice = useCustomerAuth().isWholesaleVip && displayPriceIsVip(product)
   const tone = statusTone(product.status) !== 'neutral' ? statusTone(product.status) : (product.isNew ? 'new' : 'neutral')
 
-  const ctaLabel = isPartSelector ? 'Select Model' : hasVariants ? 'View Options' : justAdded ? 'Added' : 'Add to Cart'
+  // A product that sells a warranty choice is never quick-added: the customer
+  // picks the cover (and sees its price) on the product page.
+  const needsChoice = hasVariants || hasWarrantyChoice(product)
+  const ctaLabel = isPartSelector ? 'Select Model' : needsChoice ? 'View Options' : justAdded ? 'Added' : 'Add to Cart'
   const tagline = product.description?.split('.')[0]
   const specChips = getProductSpecChips(product)
 
@@ -74,7 +82,7 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
       window.location.href = href
       return
     }
-    if (hasVariants) {
+    if (needsChoice) {
       window.location.href = href
       return
     }
@@ -155,6 +163,7 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
               For {product.compatibility[0]}
             </span>
           )}
+          <ConditionChip product={product} className="mb-1.5 w-fit" />
           <h3 className={`font-semibold text-foreground leading-tight mb-1 line-clamp-2 ${featured ? 'text-[15px]' : 'text-sm'}`}>
             {product.name}
           </h3>
@@ -170,6 +179,7 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
             </span>
           )}
           <div className="mt-auto">
+            {showVipPrice && <VipPriceTag className="mb-0.5" />}
             <span className={`font-bold tracking-tight block mb-2 text-foreground ${featured ? 'text-lg' : 'text-[15px] sm:text-base'}`}>
               {hasVariants && <span className="text-[11px] font-medium text-muted-foreground mr-0.5">From</span>}{formatPrice(minPrice)}
             </span>

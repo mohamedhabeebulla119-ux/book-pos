@@ -277,6 +277,39 @@ export type Database = {
           },
         ]
       }
+      condition_grades: {
+        Row: {
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       device_models: {
         Row: {
           created_at: string
@@ -460,6 +493,9 @@ export type Database = {
       }
       order_items: {
         Row: {
+          base_unit_price_cents: number | null
+          condition_grade_snapshot: string | null
+          condition_snapshot: string | null
           created_at: string
           id: string
           image_path_snapshot: string | null
@@ -473,8 +509,15 @@ export type Database = {
           unit_price_cents: number
           variant_id: string | null
           variant_label_snapshot: string | null
+          warranty_label_snapshot: string | null
+          warranty_months_snapshot: number | null
+          warranty_option_id: string | null
+          warranty_price_cents_snapshot: number
         }
         Insert: {
+          base_unit_price_cents?: number | null
+          condition_grade_snapshot?: string | null
+          condition_snapshot?: string | null
           created_at?: string
           id?: string
           image_path_snapshot?: string | null
@@ -488,8 +531,15 @@ export type Database = {
           unit_price_cents: number
           variant_id?: string | null
           variant_label_snapshot?: string | null
+          warranty_label_snapshot?: string | null
+          warranty_months_snapshot?: number | null
+          warranty_option_id?: string | null
+          warranty_price_cents_snapshot?: number
         }
         Update: {
+          base_unit_price_cents?: number | null
+          condition_grade_snapshot?: string | null
+          condition_snapshot?: string | null
           created_at?: string
           id?: string
           image_path_snapshot?: string | null
@@ -503,6 +553,10 @@ export type Database = {
           unit_price_cents?: number
           variant_id?: string | null
           variant_label_snapshot?: string | null
+          warranty_label_snapshot?: string | null
+          warranty_months_snapshot?: number | null
+          warranty_option_id?: string | null
+          warranty_price_cents_snapshot?: number
         }
         Relationships: [
           {
@@ -538,6 +592,13 @@ export type Database = {
             columns: ["variant_id"]
             isOneToOne: false
             referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_warranty_option_id_fkey"
+            columns: ["warranty_option_id"]
+            isOneToOne: false
+            referencedRelation: "product_warranty_options"
             referencedColumns: ["id"]
           },
         ]
@@ -918,17 +979,68 @@ export type Database = {
           },
         ]
       }
+      product_warranty_options: {
+        Row: {
+          additional_price_cents: number
+          created_at: string
+          display_order: number
+          duration_months: number
+          id: string
+          is_default: boolean
+          is_enabled: boolean
+          product_id: string
+          updated_at: string
+        }
+        Insert: {
+          additional_price_cents?: number
+          created_at?: string
+          display_order?: number
+          duration_months: number
+          id?: string
+          is_default?: boolean
+          is_enabled?: boolean
+          product_id: string
+          updated_at?: string
+        }
+        Update: {
+          additional_price_cents?: number
+          created_at?: string
+          display_order?: number
+          duration_months?: number
+          id?: string
+          is_default?: boolean
+          is_enabled?: boolean
+          product_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_warranty_options_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
+          accessories_included: string | null
+          battery_health: number | null
           category_id: string
+          condition: string
+          condition_grade_id: string | null
           created_at: string
+          cycle_count: number | null
           description: string
+          device_notes: string | null
           id: string
           is_active: boolean
           is_new: boolean
           lifecycle_status: string | null
           model: string | null
           name: string
+          physical_condition: string | null
           rating: number | null
           reviews_count: number
           sort_order: number
@@ -936,21 +1048,33 @@ export type Database = {
           subcategory: string
           updated_at: string
           warranty_coverage: string | null
+          warranty_covered: string[]
+          warranty_description: string | null
           warranty_duration: string | null
+          warranty_excluded: string[]
           warranty_months: number | null
           warranty_status: string | null
           warranty_text: string | null
+          warranty_title: string | null
+          warranty_type: string
         }
         Insert: {
+          accessories_included?: string | null
+          battery_health?: number | null
           category_id: string
+          condition?: string
+          condition_grade_id?: string | null
           created_at?: string
+          cycle_count?: number | null
           description?: string
+          device_notes?: string | null
           id: string
           is_active?: boolean
           is_new?: boolean
           lifecycle_status?: string | null
           model?: string | null
           name: string
+          physical_condition?: string | null
           rating?: number | null
           reviews_count?: number
           sort_order?: number
@@ -958,21 +1082,33 @@ export type Database = {
           subcategory: string
           updated_at?: string
           warranty_coverage?: string | null
+          warranty_covered?: string[]
+          warranty_description?: string | null
           warranty_duration?: string | null
+          warranty_excluded?: string[]
           warranty_months?: number | null
           warranty_status?: string | null
           warranty_text?: string | null
+          warranty_title?: string | null
+          warranty_type?: string
         }
         Update: {
+          accessories_included?: string | null
+          battery_health?: number | null
           category_id?: string
+          condition?: string
+          condition_grade_id?: string | null
           created_at?: string
+          cycle_count?: number | null
           description?: string
+          device_notes?: string | null
           id?: string
           is_active?: boolean
           is_new?: boolean
           lifecycle_status?: string | null
           model?: string | null
           name?: string
+          physical_condition?: string | null
           rating?: number | null
           reviews_count?: number
           sort_order?: number
@@ -980,10 +1116,15 @@ export type Database = {
           subcategory?: string
           updated_at?: string
           warranty_coverage?: string | null
+          warranty_covered?: string[]
+          warranty_description?: string | null
           warranty_duration?: string | null
+          warranty_excluded?: string[]
           warranty_months?: number | null
           warranty_status?: string | null
           warranty_text?: string | null
+          warranty_title?: string | null
+          warranty_type?: string
         }
         Relationships: [
           {
@@ -991,6 +1132,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_condition_grade_id_fkey"
+            columns: ["condition_grade_id"]
+            isOneToOne: false
+            referencedRelation: "condition_grades"
             referencedColumns: ["id"]
           },
         ]
@@ -1353,11 +1501,7 @@ export type Database = {
     }
     Functions: {
       admin_review_wholesale_request: {
-        Args: {
-          p_note?: string
-          p_request_id: string
-          p_status: string
-        }
+        Args: { p_note?: string; p_request_id: string; p_status: string }
         Returns: {
           business_name: string
           business_registration: string | null
@@ -1436,6 +1580,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      place_order: { Args: { p_lines: Json; p_notes?: string }; Returns: Json }
     }
     Enums: {
       [_ in never]: never

@@ -3,7 +3,12 @@ import { formatPrice } from '@/utils/formatPrice'
 
 import { useState } from 'react'
 import { Header } from '@/components/ui/Header'
-import { useCatalogProduct, resolveVariant, selectedPrice } from '@/lib/catalog'
+import { useCatalogProduct, resolveVariant, selectedPrice, selectedPriceIsVip, resolveWarrantyOption } from '@/lib/catalog'
+import {
+  ConditionChip, PreOwnedDetails, WarrantyPicker, PriceBreakdown, WarrantyTerms,
+} from '@/components/product/ProductConditionWarranty'
+import { useCustomerAuth } from '@/context/CustomerAuthContext'
+import { VipPriceTag } from '@/components/account/VipBadge'
 import { iphoneModels } from '@/data/iphoneModels'
 import { categorySlugFromName } from '@/data/categoryMeta'
 import { getCategoryTheme } from '@/lib/categoryTheme'
@@ -36,11 +41,15 @@ export function ProductDetailView({ productId }: { productId: string }) {
   // catalog once it loads. Live pricing and stock arrive with no route change.
   const product = useCatalogProduct(productId)
   const { addToCart } = useCart()
+  const { isWholesaleVip } = useCustomerAuth()
 
   // Hold the variant ID, not the variant object. The object is re-read from the
   // current product on every render, so a live price update reaches the price,
   // the sticky bar and addToCart instead of being frozen at first render.
   const [selectedVariantId, setSelectedVariantId] = useState<string | undefined>(undefined)
+  // Same pattern as the variant: hold the id, re-read the option (and its
+  // add-on price) from the current product on every render.
+  const [selectedWarrantyId, setSelectedWarrantyId] = useState<string | undefined>(undefined)
   const [activeImageIndex, setActiveImageIndex] = useState(0)
   const [quantity, setQuantity] = useState(1)
   // "Show stock status" in /admin/settings.
@@ -63,6 +72,10 @@ export function ProductDetailView({ productId }: { productId: string }) {
 
   const selectedVariant = resolveVariant(product, selectedVariantId)
   const currentPrice = selectedPrice(product, selectedVariant)
+  // undefined unless the product sells a warranty choice; then the chosen
+  // option, or the admin's default. A withdrawn option falls back to the default.
+  const warrantyOption = resolveWarrantyOption(product, selectedWarrantyId) ?? resolveWarrantyOption(product, undefined)
+  const unitTotal = currentPrice + (warrantyOption?.addOn ?? 0)
   const theme = getCategoryTheme(product.category)
 
   // Check if there are repair parts for this device (currently iPhones)
@@ -128,8 +141,11 @@ export function ProductDetailView({ productId }: { productId: string }) {
 
         {/* Product Info */}
         <div className="px-4 py-6">
-          <div className="mb-1.5 inline-flex items-center px-2.5 py-1 rounded-full bg-primary-soft border border-mint-deep text-[11px] font-bold uppercase tracking-wide text-primary">
-            {product.isNew || product.status === 'NEW' ? 'New' : product.subcategory}
+          <div className="mb-1.5 flex flex-wrap items-center gap-2">
+            <div className="inline-flex items-center px-2.5 py-1 rounded-full bg-primary-soft border border-mint-deep text-[11px] font-bold uppercase tracking-wide text-primary">
+              {product.isNew || product.status === 'NEW' ? 'New' : product.subcategory}
+            </div>
+            <ConditionChip product={product} className="py-1 text-[11px]" />
           </div>
           <h1 className="text-2xl sm:text-[32px] font-bold tracking-tight mb-2 leading-tight">{product.name}</h1>
 
@@ -157,7 +173,11 @@ export function ProductDetailView({ productId }: { productId: string }) {
             )}
           </div>
 
-          <div className="text-[26px] font-bold tracking-tight mb-6">{formatPrice(currentPrice)}</div>
+          <div className={warrantyOption ? 'mb-3' : 'mb-6'}>
+            {isWholesaleVip && selectedPriceIsVip(product, selectedVariant) && <VipPriceTag className="mb-0.5" />}
+            <div className="text-[26px] font-bold tracking-tight">{formatPrice(unitTotal)}</div>
+          </div>
+          <PriceBreakdown product={product} base={currentPrice} option={warrantyOption} />
 
           {/* Quantity */}
           <div className="mb-6">
@@ -221,6 +241,10 @@ export function ProductDetailView({ productId }: { productId: string }) {
             </div>
           )}
 
+          <WarrantyPicker product={product} selected={warrantyOption} onSelect={(o) => setSelectedWarrantyId(o.id)} />
+
+          <PreOwnedDetails product={product} />
+
           {/* Compatibility (if Replacement Part) */}
           {product.compatibility && (
             <InfoBox icon={ShieldCheck} title="Compatibility" tone="info" className="mb-8">
@@ -279,37 +303,14 @@ export function ProductDetailView({ productId }: { productId: string }) {
             </div>
           </div>
 
-          {/* Warranty */}
-          {product.warrantyInfo && (
-            <div className="mb-8">
-              <h3 className="text-lg font-bold tracking-tight mb-3">Warranty</h3>
-              {product.warrantyInfo.status === 'active' ? (
-                <InfoBox icon={ShieldCheck} title={`${product.warrantyInfo.duration} Warranty`} tone="success">
-                  <div className="space-y-3 text-sm">
-                    <div>
-                      <span className="font-semibold text-primary-strong">Coverage: </span>
-                      <span className="text-foreground/80">{product.warrantyInfo.coverage}</span>
-                    </div>
-                    <div>
-                      <span className="font-semibold text-primary-strong">Duration: </span>
-                      <span className="text-foreground/80">
-                        {product.warrantyInfo.months} months from the purchase date.
-                      </span>
-                    </div>
-                  </div>
-                </InfoBox>
-              ) : (
-                <p className="text-sm text-muted-foreground">No warranty coverage for this product.</p>
-              )}
-            </div>
-          )}
+          <WarrantyTerms product={product} />
         </div>
       </main>
 
       <StickyActionBar
         title={product.name}
-        price={formatPrice(currentPrice * quantity)}
-        onAddToCart={() => addToCart(product, selectedVariant, quantity)}
+        price={formatPrice(unitTotal * quantity)}
+        onAddToCart={() => addToCart(product, selectedVariant, quantity, warrantyOption)}
       />
     </div>
   )

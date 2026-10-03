@@ -45,6 +45,12 @@ export interface ProductVariant {
   color?: string
   colorCode?: string
   storage?: string
+  /**
+   * True only when `price` came from the caller's own wholesale_vip row in
+   * my_effective_prices (which RLS withholds from every other caller). Set by
+   * the live catalog mapper; a display label only, never a price input.
+   */
+  isVipPrice?: boolean
 }
 
 /**
@@ -84,6 +90,70 @@ export interface Product {
   isNew?: boolean
   status?: 'NEW' | 'CURRENT' | 'OLDER'
   variants?: ProductVariant[]
+  /**
+   * True only when `price` came from the caller's own wholesale_vip row in
+   * my_effective_prices (which RLS withholds from every other caller). Set by
+   * the live catalog mapper; a display label only, never a price input.
+   */
+  isVipPrice?: boolean
+  /** products.condition. Absent on bundled data, which is all brand new. */
+  condition?: ProductCondition
+  /** Pre-owned details, only for condition 'pre_owned'. */
+  preOwned?: PreOwnedDetails
+  /**
+   * products.warranty_type + terms + product_warranty_options. Absent until
+   * live data loads. (`warranty` above is the older free-text line.)
+   */
+  warrantyPlan?: ProductWarranty
+}
+
+/**
+ * products.condition — a dimension of a product, independent of its category
+ * (a Pre-Owned iPhone is still in iPhone). 'refurbished' is accepted by the
+ * database but not offered in the admin until the business confirms it.
+ */
+export type ProductCondition = 'brand_new' | 'pre_owned' | 'refurbished'
+
+/** One step of the admin-defined grading scale (public.condition_grades). */
+export interface ConditionGrade {
+  code: string
+  label: string
+  description?: string
+}
+
+export interface PreOwnedDetails {
+  grade?: ConditionGrade
+  /** Percent, 0–100. */
+  batteryHealth?: number
+  cycleCount?: number
+  physicalCondition?: string
+  accessoriesIncluded?: string
+  deviceNotes?: string
+}
+
+/**
+ *   none          – no warranty
+ *   included      – a fixed warranty described by WarrantyInfo and the terms
+ *   optional_paid – the customer chooses one of `options`
+ */
+export type WarrantyType = 'none' | 'included' | 'optional_paid'
+
+/** A product_warranty_options row. `addOn` is in rupees, like Product.price. */
+export interface WarrantyOption {
+  id: string
+  months: number
+  addOn: number
+  isDefault: boolean
+}
+
+export interface ProductWarranty {
+  type: WarrantyType
+  title?: string
+  description?: string
+  covered: string[]
+  excluded: string[]
+  /** Enabled options in display order (RLS hides disabled ones). */
+  options: WarrantyOption[]
 }
 
 export interface CartItem {
@@ -91,4 +161,13 @@ export interface CartItem {
   product: Product
   variant?: ProductVariant
   quantity: number
+  /** The product_warranty_options id chosen on the product page, if any. */
+  warrantyOptionId?: string
+  /**
+   * What the chosen warranty looked like when it was added — kept so the line
+   * can still be described if the option is later withdrawn. Never a price
+   * source: the cart re-resolves the add-on from the live catalog, and
+   * place_order() resolves it again in the database.
+   */
+  warrantySnapshot?: { months: number; label: string; addOn: number }
 }

@@ -1,18 +1,29 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
-  X, LoaderCircle, Check, AlertCircle, Plus, Trash2, Lock, ImageIcon, Info, Star, Ban,
+  X, LoaderCircle, Check, AlertCircle, Plus, Trash2, Lock, ImageIcon, Info, Star, Ban, Upload,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import {
   loadProductDetail, updateProduct, updateVariant, saveSpecs, updateImage,
   addVariant, deleteVariant, addImage, deleteImage, setPrimaryImage,
   addCompatibility, deleteCompatibility, deleteProduct, countOrderLines,
-  SUBCATEGORY_OPTIONS, LIFECYCLE_OPTIONS, WARRANTY_STATUS_OPTIONS,
+  SUBCATEGORY_OPTIONS, LIFECYCLE_OPTIONS,
   type AdminProductDetail, type CategoryRow, type ProductPatch,
-  type VariantPatch, type SpecDraft,
+  type VariantPatch, type SpecDraft, type ProductRow,
 } from '@/lib/admin/products'
+import {
+  listWarrantyOptions, addWarrantyOption, updateWarrantyOption, deleteWarrantyOption,
+  setDefaultWarrantyOption, reorderWarrantyOptions, listConditionGrades,
+  uploadProductImage, PRODUCT_IMAGE_BUCKET,
+  type WarrantyOptionRow, type ConditionGradeRow,
+} from '@/lib/admin/warranty'
+import { productImageUrl } from '@/lib/catalog'
+import { describeAdminError } from '@/lib/admin/errors'
+import {
+  ConditionEditor, WarrantyEditor, toDraft, draftToPatch, type WarrantyOptionDraft,
+} from './ConditionWarrantyEditor'
 import {
   TextField, NumberField, TextAreaField, SelectField, LockedField,
   CheckboxField, EditorSection,
@@ -41,7 +52,38 @@ type Confirm =
   | { kind: 'variant'; id: string; label: string }
   | { kind: 'image'; id: string; label: string }
   | { kind: 'compatibility'; id: string; label: string }
+  | { kind: 'warranty'; id: string; label: string }
   | { kind: 'product'; orderLines: number }
+
+/** The editable fields of a product row, as the form holds them. */
+function formFrom(p: ProductRow): ProductPatch {
+  return {
+    name: p.name,
+    category_id: p.category_id,
+    subcategory: p.subcategory,
+    model: p.model,
+    description: p.description,
+    warranty_text: p.warranty_text,
+    warranty_status: p.warranty_status,
+    warranty_duration: p.warranty_duration,
+    warranty_months: p.warranty_months,
+    warranty_coverage: p.warranty_coverage,
+    lifecycle_status: p.lifecycle_status,
+    is_new: p.is_new,
+    condition: p.condition,
+    condition_grade_id: p.condition_grade_id,
+    battery_health: p.battery_health,
+    cycle_count: p.cycle_count,
+    physical_condition: p.physical_condition,
+    accessories_included: p.accessories_included,
+    device_notes: p.device_notes,
+    warranty_type: p.warranty_type,
+    warranty_title: p.warranty_title,
+    warranty_description: p.warranty_description,
+    warranty_covered: p.warranty_covered,
+    warranty_excluded: p.warranty_excluded,
+  }
+}
 
 export function ProductEditor({ productId, categories, canEdit, onClose, onSaved, onDeleted }: Props) {
   const [detail, setDetail] = useState<AdminProductDetail | null>(null)
@@ -52,6 +94,12 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
   const [variants, setVariants] = useState<(VariantPatch & { id: string; legacyKey: string | null })[]>([])
   const [specs, setSpecs] = useState<SpecDraft[]>([])
   const [images, setImages] = useState<{ id: string; path: string; alt: string; position: number }[]>([])
+  const [grades, setGrades] = useState<ConditionGradeRow[]>([])
+  const [gradesError, setGradesError] = useState<string | null>(null)
+  const [optionRows, setOptionRows] = useState<WarrantyOptionRow[]>([])
+  const [optionDrafts, setOptionDrafts] = useState<WarrantyOptionDraft[]>([])
+  const [optionsError, setOptionsError] = useState<string | null>(null)
+  const fileInput = useRef<HTMLInputElement>(null)
 
   // Rows added or removed here are written immediately rather than batched with
   // "Save changes": an insert needs a database id before its fields can be
@@ -70,24 +118,20 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
   useEffect(() => {
     let cancelled = false
 
+    // Grades and warranty options load beside the product; a failure there is
+    // reported in its own section rather than blocking the whole editor.
+    listConditionGrades()
+      .then((rows) => { if (!cancelled) setGrades(rows) })
+      .catch((err) => { if (!cancelled) setGradesError(describeAdminError(err, 'Could not load condition grades.')) })
+    listWarrantyOptions(productId)
+      .then((rows) => { if (!cancelled) { setOptionRows(rows); setOptionDrafts(rows.map(toDraft)) } })
+      .catch((err) => { if (!cancelled) setOptionsError(describeAdminError(err, 'Could not load warranty options.')) })
+
     loadProductDetail(productId)
       .then((d) => {
         if (cancelled) return
         setDetail(d)
-        setForm({
-          name: d.product.name,
-          category_id: d.product.category_id,
-          subcategory: d.product.subcategory,
-          model: d.product.model,
-          description: d.product.description,
-          warranty_text: d.product.warranty_text,
-          warranty_status: d.product.warranty_status,
-          warranty_duration: d.product.warranty_duration,
-          warranty_months: d.product.warranty_months,
-          warranty_coverage: d.product.warranty_coverage,
-          lifecycle_status: d.product.lifecycle_status,
-          is_new: d.product.is_new,
-        })
+        setForm(formFrom(d.product))
         setVariants(d.variants.map((v) => ({
           id: v.id, legacyKey: v.legacy_key, name: v.name, color: v.color,
           color_code: v.color_code, storage: v.storage, stock: v.stock, sort_order: v.sort_order,
@@ -115,6 +159,45 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
     })))
     setSpecs(fresh.specs.map((sp) => ({ id: sp.id, label: sp.label, value: sp.value })))
     setImages(fresh.images.map((i) => ({ id: i.id, path: i.path, alt: i.alt ?? '', position: i.position })))
+    await reloadOptions()
+  }
+
+  /** Re-reads warranty options, keeping unsaved edits to options that still exist. */
+  async function reloadOptions() {
+    const rows = await listWarrantyOptions(productId)
+    setOptionRows(rows)
+    setOptionDrafts((prev) => rows.map((row) => prev.find((d) => d.id === row.id) ?? toDraft(row)))
+    setOptionsError(null)
+  }
+
+  async function reloadGrades() {
+    setGrades(await listConditionGrades())
+    setGradesError(null)
+  }
+
+  /** Swaps an option with its neighbour and rewrites the order. */
+  function moveOption(id: string, direction: -1 | 1) {
+    const ids = optionDrafts.map((d) => d.id)
+    const from = ids.indexOf(id)
+    const to = from + direction
+    if (from < 0 || to < 0 || to >= ids.length) return
+    ;[ids[from], ids[to]] = [ids[to], ids[from]]
+    void runRowAction(() => reorderWarrantyOptions(ids))
+  }
+
+  /** Uploads a photo to the product-images bucket and attaches it to this product. */
+  async function uploadImages(files: FileList | null) {
+    if (!files || files.length === 0 || !detail) return
+    const list = Array.from(files)
+    await runRowAction(async () => {
+      let existing = detail.images
+      for (const file of list) {
+        const path = await uploadProductImage(productId, file)
+        const row = await addImage(productId, { path, alt: null, storage_bucket: PRODUCT_IMAGE_BUCKET }, existing)
+        existing = [...existing, row]
+      }
+    })
+    if (fileInput.current) fileInput.current.value = ''
   }
 
   /** Runs one immediate row write, keeping its error separate from the form's. */
@@ -126,7 +209,7 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
       await reload()
       onSaved()
     } catch (err) {
-      setRowError(err instanceof Error ? err.message : 'The database refused that change.')
+      setRowError(describeAdminError(err, 'The database refused that change.'))
     } finally {
       setRowBusy(false)
     }
@@ -153,9 +236,30 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
 
   async function handleSave() {
     if (!form || !detail) return
+    // Validate warranty option edits before writing anything.
+    const optionPatches: { id: string; patch: Parameters<typeof updateWarrantyOption>[1] }[] = []
+    for (const draft of optionDrafts) {
+      const before = optionRows.find((r) => r.id === draft.id)
+      if (!before) continue
+      const parsed = draftToPatch(draft)
+      if (!parsed.ok) { setSave({ kind: 'error', message: parsed.reason }); return }
+      const p = parsed.patch
+      if (p.duration_months !== before.duration_months || p.additional_price_cents !== before.additional_price_cents
+          || p.is_enabled !== before.is_enabled) {
+        optionPatches.push({ id: draft.id, patch: p })
+      }
+    }
+
     setSave({ kind: 'saving' })
     try {
-      await updateProduct(detail.product.id, form)
+      // warranty_status is the older display flag; it follows warranty_type so
+      // the two can never contradict each other.
+      await updateProduct(detail.product.id, {
+        ...form,
+        warranty_status: form.warranty_type === 'none' ? 'none' : 'active',
+      })
+
+      for (const { id, patch } of optionPatches) await updateWarrantyOption(id, patch)
 
       for (const variant of variants) {
         const before = detail.variants.find((v) => v.id === variant.id)
@@ -183,11 +287,17 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
 
       const fresh = await loadProductDetail(detail.product.id)
       setDetail(fresh)
+      setForm(formFrom(fresh.product))
       setSpecs(fresh.specs.map((s) => ({ id: s.id, label: s.label, value: s.value })))
+      if (optionPatches.length > 0) {
+        const rows = await listWarrantyOptions(productId)
+        setOptionRows(rows)
+        setOptionDrafts(rows.map(toDraft))
+      }
       setSave({ kind: 'saved' })
       onSaved()
     } catch (err) {
-      setSave({ kind: 'error', message: err instanceof Error ? err.message : 'Save failed.' })
+      setSave({ kind: 'error', message: describeAdminError(err, 'Save failed.') })
     }
   }
 
@@ -273,23 +383,24 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
                 </div>
               </EditorSection>
 
-              <EditorSection title="Warranty">
-                <div className="grid gap-4">
-                  <TextField id="p-wtext" label="Warranty text" value={form.warranty_text ?? ''} disabled={disabled}
-                    onChange={(v) => patchForm('warranty_text', v || null)} />
-                  <div className="grid sm:grid-cols-3 gap-4">
-                    <SelectField id="p-wstat" label="Status" value={form.warranty_status ?? ''} disabled={disabled}
-                      allowEmpty onChange={(v) => patchForm('warranty_status', v || null)}
-                      options={WARRANTY_STATUS_OPTIONS.map((s) => ({ value: s, label: s }))} />
-                    <TextField id="p-wdur" label="Duration" value={form.warranty_duration ?? ''} disabled={disabled}
-                      onChange={(v) => patchForm('warranty_duration', v || null)} />
-                    <NumberField id="p-wmon" label="Months" min={0} value={form.warranty_months} disabled={disabled}
-                      onChange={(v) => patchForm('warranty_months', v)} />
-                  </div>
-                  <TextField id="p-wcov" label="Coverage" value={form.warranty_coverage ?? ''} disabled={disabled}
-                    onChange={(v) => patchForm('warranty_coverage', v || null)} />
-                </div>
-              </EditorSection>
+              <ConditionEditor form={form} patchForm={patchForm} grades={grades} gradesError={gradesError}
+                disabled={disabled} canEdit={canEdit}
+                onGradesChanged={reloadGrades} />
+
+              <WarrantyEditor form={form} patchForm={patchForm} subcategory={form.subcategory}
+                rows={optionRows} drafts={optionDrafts} setDrafts={setOptionDrafts} optionsError={optionsError}
+                disabled={disabled} rowBusy={rowBusy}
+                onAdd={async (months, addOnCents) => {
+                  let ok = false
+                  await runRowAction(async () => {
+                    await addWarrantyOption(productId, { months, addOnCents }, optionRows)
+                    ok = true
+                  })
+                  return ok
+                }}
+                onSetDefault={(id) => void runRowAction(() => setDefaultWarrantyOption(productId, id))}
+                onMove={moveOption}
+                onAskDelete={(id, label) => setConfirm({ kind: 'warranty', id, label })} />
 
               <EditorSection title="Variants"
                   description="Variant keys are fixed once created: they map database rows back to saved carts and wishlists. Prices for each variant live on the Pricing screen.">
@@ -384,27 +495,38 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
               </EditorSection>
 
               <EditorSection title="Images"
-                description="Image references. Files are served from the app's bundled library or from a full https:// URL — this project has no Supabase Storage bucket, so nothing is uploaded here.">
+                description="Upload photos to Supabase Storage (JPG, PNG or WebP, up to 5 MB) — never bundled into the app. For a pre-owned unit, upload photos of the actual device and label each one (Front, Back, Battery health…). Older images keep their bundled paths.">
                 <div className="space-y-3">
                   {images.length === 0 && (
                     <p className="text-[13px] text-muted-foreground">
                       No images yet. The first one added becomes the card image customers see.
                     </p>
                   )}
-                  {images.map((image, index) => (
+                  {images.map((image, index) => {
+                    const row = detail.images.find((i) => i.id === image.id)
+                    const uploaded = Boolean(row?.storage_bucket)
+                    return (
                     <div key={image.id} className="flex items-start gap-3 rounded-2xl border border-mint/70 dark:border-border bg-card p-3">
-                      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${
-                        detail.images.find((i) => i.id === image.id)?.is_primary
+                      <span className={`flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border ${
+                        row?.is_primary
                           ? 'border-mint-deep bg-primary-soft text-primary'
                           : 'border-mint/70 dark:border-border bg-muted text-muted-foreground'
                       }`}>
-                        <ImageIcon size={16} />
+                        {row
+                          ? <img src={productImageUrl(row)} alt="" className="h-full w-full object-cover" />
+                          : <ImageIcon size={16} />}
                       </span>
                       <div className="min-w-0 flex-1 grid gap-2">
-                        <input aria-label="Image path" value={image.path} disabled={disabled}
-                          onChange={(e) => setImages((p) => p.map((x, i) => i === index ? { ...x, path: e.target.value } : x))}
-                          className="focus-ring w-full rounded-xl border border-mint-deep dark:border-border bg-background px-3 py-2 font-mono text-[12px] text-foreground focus:outline-none focus:border-primary/45 disabled:opacity-60" />
-                        <input aria-label="Image alt text" value={image.alt} disabled={disabled} placeholder="Alt text"
+                        {uploaded ? (
+                          <p className="truncate rounded-xl border border-dashed border-mint-deep dark:border-border bg-muted px-3 py-2 font-mono text-[11px] text-muted-foreground">
+                            Uploaded · {image.path}
+                          </p>
+                        ) : (
+                          <input aria-label="Image path" value={image.path} disabled={disabled}
+                            onChange={(e) => setImages((p) => p.map((x, i) => i === index ? { ...x, path: e.target.value } : x))}
+                            className="focus-ring w-full rounded-xl border border-mint-deep dark:border-border bg-background px-3 py-2 font-mono text-[12px] text-foreground focus:outline-none focus:border-primary/45 disabled:opacity-60" />
+                        )}
+                        <input aria-label="Image label" value={image.alt} disabled={disabled} placeholder="Label, e.g. Front, Back, Battery health"
                           onChange={(e) => setImages((p) => p.map((x, i) => i === index ? { ...x, alt: e.target.value } : x))}
                           className="focus-ring w-full rounded-xl border border-mint-deep dark:border-border bg-background px-3 py-2 text-[13px] text-foreground focus:outline-none focus:border-primary/45 disabled:opacity-60" />
                       </div>
@@ -426,8 +548,20 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
                         </button>
                       </div>
                     </div>
-                  ))}
+                    )
+                  })}
 
+                  <input ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp" multiple hidden
+                    onChange={(e) => void uploadImages(e.target.files)} />
+                  <Button type="button" variant="outline" size="sm" disabled={disabled || rowBusy}
+                    onClick={() => fileInput.current?.click()}>
+                    {rowBusy
+                      ? <LoaderCircle size={14} className="mr-1.5 animate-spin motion-reduce:animate-none" />
+                      : <Upload size={14} className="mr-1.5" />}
+                    Upload photos
+                  </Button>
+
+                  <p className="pt-1 text-[11.5px] text-muted-foreground">Or reference a bundled image path:</p>
                   <div className="flex items-start gap-2">
                     <input aria-label="New image path" value={newImagePath} disabled={disabled || rowBusy}
                       placeholder="/images/products/iphone/iphone-18-pro.jpg"
@@ -528,13 +662,16 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
                 {confirm.kind === 'variant' ? 'Remove this variant?'
                   : confirm.kind === 'image' ? 'Remove this image?'
                   : confirm.kind === 'compatibility' ? 'Remove this entry?'
+                  : confirm.kind === 'warranty' ? 'Delete this warranty option?'
                   : confirm.orderLines > 0 ? 'This product has been ordered' : 'Delete this product?'}
               </h3>
               <p className="mb-5 text-sm leading-relaxed text-muted-foreground">
                 {confirm.kind === 'variant'
                   ? `“${confirm.label}” and its price history are removed permanently. Carts that hold it will no longer resolve it.`
                   : confirm.kind === 'image'
-                    ? `${confirm.label} stops being shown. The image file itself is untouched.`
+                    ? `${confirm.label} stops being shown. An uploaded file is deleted from storage; a bundled file is untouched.`
+                  : confirm.kind === 'warranty'
+                    ? `The ${confirm.label} stops being offered. Orders already placed with it keep their recorded warranty and price.`
                     : confirm.kind === 'compatibility'
                       ? `“${confirm.label}” is removed from this product's compatibility list.`
                       : confirm.orderLines > 0
@@ -554,6 +691,7 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
                       if (target.kind === 'variant') void runRowAction(() => deleteVariant(target.id))
                       else if (target.kind === 'image') void runRowAction(() => deleteImage(target.id))
                       else if (target.kind === 'compatibility') void runRowAction(() => deleteCompatibility(target.id))
+                      else if (target.kind === 'warranty') void runRowAction(() => deleteWarrantyOption(target.id))
                       else void handleDeleteProduct()
                     }}>
                     {rowBusy

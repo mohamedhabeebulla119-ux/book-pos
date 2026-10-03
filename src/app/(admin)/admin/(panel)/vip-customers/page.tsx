@@ -8,6 +8,7 @@ import {
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
 import { AdminPageHeading } from '@/components/admin/AdminPage'
+import { CustomerTypeBadge } from '@/components/admin/users/badges'
 import { useAdminAuth } from '@/context/AdminAuthContext'
 import {
   listCustomers, setCustomerType, canManageVip, matchesCustomerQuery,
@@ -21,28 +22,6 @@ type Scope = 'all' | 'vip' | 'retail'
 function formatDate(iso: string | null): string | null {
   if (!iso) return null
   return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-}
-
-function StatusBadge({ status }: { status: VipStatus }) {
-  if (status === 'vip') {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-mint-deep bg-primary-soft px-2.5 py-1 text-[11px] font-semibold text-primary whitespace-nowrap">
-        <Crown size={12} /> Wholesale VIP
-      </span>
-    )
-  }
-  if (status === 'vip_expired') {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-600 dark:text-amber-400 whitespace-nowrap">
-        <Crown size={12} /> VIP expired
-      </span>
-    )
-  }
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground whitespace-nowrap">
-      <User size={12} /> Retail
-    </span>
-  )
 }
 
 export default function AdminVipCustomersPage() {
@@ -274,7 +253,7 @@ export default function AdminVipCustomersPage() {
                         {!c.email && !c.phone && <span className="text-[12px] text-muted-foreground">—</span>}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <StatusBadge status={status} />
+                        <CustomerTypeBadge status={status} />
                         {isVip && c.vip_approved_by && (
                           <span className="mt-1 block text-[10.5px] text-muted-foreground">
                             by {nameById.get(c.vip_approved_by) ?? 'an administrator'}

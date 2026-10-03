@@ -1,4 +1,7 @@
-import type { Product, ProductVariant, ProductCategory, ProductSubcategory, WarrantyInfo } from '@/types'
+import type {
+  Product, ProductVariant, ProductCategory, ProductSubcategory, WarrantyInfo,
+  ProductCondition, PreOwnedDetails, ProductWarranty, WarrantyType,
+} from '@/types'
 import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase/client'
 import { resolveCustomerType } from '@/lib/customer/profile'
 import type { ResolvedTier } from './types'
@@ -16,9 +19,10 @@ import type { ResolvedTier } from './types'
  * customer's query physically cannot return a wholesale_vip row. There is no
  * price column on products and none is introduced here.
  *
- * Image FILES are not fetched — product_images.path still holds the same
- * /images/... strings that ship in the APK, or an absolute URL. Supabase
- * Storage migration is a separate phase.
+ * Image FILES are not fetched. A product_images row either holds a bundled
+ * /images/... path (storage_bucket NULL — every image that predates uploads) or
+ * an object in the `product-images` Storage bucket, which is resolved to its
+ * public URL here. Uploaded images never ship in the APK.
  *
  * SINCE THE ADMIN CATALOG PHASE this module no longer only overlays. A product
  * that exists in the database but not in the bundled catalog — anything an
@@ -77,6 +81,14 @@ export function resolveTierPrice(
   return prices.retail
 }
 
+/**
+ * True when resolveTierPrice() would answer from the VIP row itself rather
+ * than the retail fallback. Feeds Product.isVipPrice — a label only.
+ */
+function isVipTierPrice(prices: TierPrices | undefined, tier: ResolvedTier): boolean {
+  return tier === 'wholesale_vip' && prices?.wholesale_vip !== undefined
+}
+
 /** Editable product fields, as stored. */
 interface ProductOverlay {
   name: string
@@ -107,6 +119,13 @@ interface VariantOverlay {
   sortOrder: number
 }
 
+/** Condition and warranty, read separately from the core catalog (see fetchProductExtras). */
+export interface ProductExtras {
+  condition: ProductCondition
+  preOwned?: PreOwnedDetails
+  warrantyPlan: ProductWarranty
+}
+
 export interface LiveCatalogData {
   activeIds: Set<string>
   product: Map<string, ProductOverlay>
@@ -128,6 +147,12 @@ export interface LiveCatalogData {
    * cost the customer live prices.
    */
   featuredIds: string[] | null
+  /**
+   * product_id -> condition + warranty. Empty when that query failed (for
+   * example before the migration that adds it is applied), in which case
+   * products simply carry no condition/warranty data — never a broken store.
+   */
+  extras: Map<string, ProductExtras>
   /**
    * The tier this catalog was resolved AT, read from the caller's own profile —
    * not guessed from the price rows that happened to come back.
@@ -171,6 +196,114 @@ async function fetchCallerTier(): Promise<ResolvedTier> {
   return resolveCustomerType(data)
 }
 
+function isCondition(value: string): value is ProductCondition {
+  return value === 'brand_new' || value === 'pre_owned' || value === 'refurbished'
+}
+
+function isWarrantyType(value: string): value is WarrantyType {
+  return value === 'none' || value === 'included' || value === 'optional_paid'
+}
+
+/**
+ * Product condition, pre-owned details, warranty terms and warranty options.
+ *
+ * Deliberately NON-FATAL, like featured products: these come from columns and
+ * tables added by a later migration, and a build that reaches customers before
+ * that migration is applied must keep its live prices rather than fall back to
+ * the bundled catalog. Any failure yields an empty map.
+ *
+ * RLS returns only enabled options of active products, and only active grades.
+ */
+async function fetchProductExtras(): Promise<Map<string, ProductExtras>> {
+  const supabase = getSupabaseClient()
+  const extras = new Map<string, ProductExtras>()
+
+  const [productsResult, optionsResult, gradesResult] = await Promise.all([
+    supabase
+      .from('products')
+      .select(
+        'id, condition, condition_grade_id, battery_health, cycle_count, physical_condition, accessories_included, device_notes, warranty_type, warranty_title, warranty_description, warranty_covered, warranty_excluded',
+      )
+      .eq('is_active', true),
+    supabase
+      .from('product_warranty_options')
+      .select('id, product_id, duration_months, additional_price_cents, is_default, display_order')
+      .order('display_order', { ascending: true }),
+    supabase.from('condition_grades').select('id, code, label, description'),
+  ])
+
+  if (productsResult.error || optionsResult.error || gradesResult.error) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.info('[catalog] condition/warranty data unavailable:',
+        (productsResult.error ?? optionsResult.error ?? gradesResult.error)?.message)
+    }
+    return extras
+  }
+
+  const grades = new Map(
+    (gradesResult.data ?? []).map((g) => [g.id, { code: g.code, label: g.label, description: g.description ?? undefined }]),
+  )
+
+  const options = new Map<string, ProductWarranty['options']>()
+  for (const row of optionsResult.data ?? []) {
+    const list = options.get(row.product_id) ?? []
+    list.push({
+      id: row.id,
+      months: row.duration_months,
+      addOn: centsToRupees(row.additional_price_cents),
+      isDefault: row.is_default,
+    })
+    options.set(row.product_id, list)
+  }
+
+  for (const row of productsResult.data ?? []) {
+    const condition = isCondition(row.condition) ? row.condition : 'brand_new'
+    extras.set(row.id, {
+      condition,
+      preOwned: condition === 'pre_owned'
+        ? {
+            grade: row.condition_grade_id ? grades.get(row.condition_grade_id) : undefined,
+            batteryHealth: row.battery_health ?? undefined,
+            cycleCount: row.cycle_count ?? undefined,
+            physicalCondition: row.physical_condition ?? undefined,
+            accessoriesIncluded: row.accessories_included ?? undefined,
+            deviceNotes: row.device_notes ?? undefined,
+          }
+        : undefined,
+      warrantyPlan: {
+        type: isWarrantyType(row.warranty_type) ? row.warranty_type : 'none',
+        title: row.warranty_title ?? undefined,
+        description: row.warranty_description ?? undefined,
+        covered: row.warranty_covered ?? [],
+        excluded: row.warranty_excluded ?? [],
+        options: options.get(row.id) ?? [],
+      },
+    })
+  }
+
+  return extras
+}
+
+/**
+ * The URL a product_images row is served from: its bundled path, or the public
+ * URL of its object in Supabase Storage.
+ */
+export function productImageUrl(row: { path: string; storage_bucket: string | null }): string {
+  if (!row.storage_bucket) return row.path
+  return getSupabaseClient().storage.from(row.storage_bucket).getPublicUrl(row.path).data.publicUrl
+}
+
+/**
+ * Resolves order_items.image_path_snapshot, which place_order() copies straight
+ * from product_images.path: a bundled '/images/...' path or an https URL is used
+ * as-is; anything else can only be an object key in the `product-images` bucket
+ * (the product_images_bucket_known constraint allows no other bucket).
+ */
+export function snapshotImageUrl(path: string): string {
+  if (path.startsWith('/') || /^https?:\/\//.test(path)) return path
+  return productImageUrl({ path, storage_bucket: 'product-images' })
+}
+
 /**
  * Reads the live catalog. Throws on failure so the caller can fall back to the
  * bundled catalog rather than rendering a half-empty store.
@@ -184,7 +317,7 @@ export async function fetchLiveCatalog(): Promise<LiveCatalogData> {
 
   const [
     tier, productsResult, variantsResult, specsResult, imagesResult,
-    compatibilityResult, categoriesResult, pricesResult, featuredResult,
+    compatibilityResult, categoriesResult, pricesResult, featuredResult, extras,
   ] =
     await Promise.all([
       fetchCallerTier(),
@@ -199,7 +332,7 @@ export async function fetchLiveCatalog(): Promise<LiveCatalogData> {
         .select('id, product_id, legacy_key, name, color, color_code, storage, sort_order')
         .order('sort_order', { ascending: true }),
       supabase.from('product_specs').select('product_id, label, value, position').order('position', { ascending: true }),
-      supabase.from('product_images').select('product_id, path, position, is_primary').order('position', { ascending: true }),
+      supabase.from('product_images').select('product_id, path, storage_bucket, position, is_primary').order('position', { ascending: true }),
       supabase.from('product_compatibility').select('product_id, label, position').order('position', { ascending: true }),
       supabase.from('categories').select('id, name').eq('is_active', true),
       supabase.from('my_effective_prices').select('product_id, variant_id, tier_code, price_cents'),
@@ -209,6 +342,7 @@ export async function fetchLiveCatalog(): Promise<LiveCatalogData> {
         .eq('slot', 'home')
         .eq('is_active', true)
         .order('position', { ascending: true }),
+      fetchProductExtras(),
     ])
 
   if (productsResult.error) throw productsResult.error
@@ -262,8 +396,9 @@ export async function fetchLiveCatalog(): Promise<LiveCatalogData> {
   const images = new Map<string, string[]>()
   for (const row of imagesResult.data ?? []) {
     const list = images.get(row.product_id) ?? []
-    if (row.is_primary) list.unshift(row.path)
-    else list.push(row.path)
+    const url = productImageUrl(row)
+    if (row.is_primary) list.unshift(url)
+    else list.push(url)
     images.set(row.product_id, list)
   }
 
@@ -319,7 +454,7 @@ export async function fetchLiveCatalog(): Promise<LiveCatalogData> {
 
   return {
     activeIds, product, variants, specs, images, compatibility, categoryName,
-    productPrice, variantPrice, featuredIds, tier,
+    productPrice, variantPrice, featuredIds, extras, tier,
   }
 }
 
@@ -345,20 +480,24 @@ function buildLiveVariants(
   productId: string,
   live: LiveCatalogData,
   productPrice: number,
+  productPriceIsVip: boolean,
 ): ProductVariant[] | undefined {
   const rows = live.variants.get(productId)
   if (!rows || rows.length === 0) return undefined
 
-  return rows.map((row) => ({
-    id: row.legacyKey,
-    name: row.name,
-    price:
-      resolveTierPrice(live.variantPrice.get(`${productId}:${row.legacyKey}`), live.tier) ??
-      productPrice,
-    color: row.color ?? undefined,
-    colorCode: row.colorCode ?? undefined,
-    storage: row.storage ?? undefined,
-  }))
+  return rows.map((row) => {
+    const prices = live.variantPrice.get(`${productId}:${row.legacyKey}`)
+    const own = resolveTierPrice(prices, live.tier)
+    return {
+      id: row.legacyKey,
+      name: row.name,
+      price: own ?? productPrice,
+      isVipPrice: own !== undefined ? isVipTierPrice(prices, live.tier) : productPriceIsVip,
+      color: row.color ?? undefined,
+      colorCode: row.colorCode ?? undefined,
+      storage: row.storage ?? undefined,
+    }
+  })
 }
 
 /**
@@ -375,6 +514,7 @@ function buildProductFromLive(
   overlay: ProductOverlay,
   live: LiveCatalogData,
   price: number,
+  priceIsVip: boolean,
 ): Product {
   return {
     id,
@@ -397,7 +537,9 @@ function buildProductFromLive(
     warrantyInfo: buildWarrantyInfo(overlay),
     isNew: overlay.is_new,
     status: (overlay.lifecycle_status as Product['status']) ?? undefined,
-    variants: buildLiveVariants(id, live, price),
+    isVipPrice: priceIsVip,
+    variants: buildLiveVariants(id, live, price, priceIsVip),
+    ...live.extras.get(id),
   }
 }
 
@@ -426,6 +568,7 @@ export function applyLiveCatalog(
     // Resolved against the customer's OWN tier, never against whichever row
     // the database happened to return first.
     const livePrice = resolveTierPrice(live.productPrice.get(product.id), live.tier)
+    const livePriceIsVip = isVipTierPrice(live.productPrice.get(product.id), live.tier)
 
     // Variants come from the database when it has them, keyed back to the
     // bundled 'v1'/'v2' ids via legacy_key so cart lines stay resolvable.
@@ -440,15 +583,16 @@ export function applyLiveCatalog(
         // BUNDLED variant price, otherwise a variant with no price row of its
         // own keeps showing a stale number shipped in the APK even though the
         // database has a newer one. Bundled values are the last resort only.
-        const price =
-          resolveTierPrice(live.variantPrice.get(`${product.id}:${lv.legacyKey}`), live.tier) ??
-          livePrice ??
-          bundled?.price ??
-          product.price
+        const prices = live.variantPrice.get(`${product.id}:${lv.legacyKey}`)
+        const own = resolveTierPrice(prices, live.tier)
+        const price = own ?? livePrice ?? bundled?.price ?? product.price
         return {
           id: lv.legacyKey,
           name: lv.name,
           price,
+          isVipPrice:
+            own !== undefined ? isVipTierPrice(prices, live.tier)
+            : livePrice !== undefined && livePriceIsVip,
           color: lv.color ?? undefined,
           colorCode: lv.colorCode ?? undefined,
           storage: lv.storage ?? undefined,
@@ -456,8 +600,9 @@ export function applyLiveCatalog(
       })
     } else if (product.variants && product.variants.length > 0) {
       variants = product.variants.map((variant) => {
-        const price = resolveTierPrice(live.variantPrice.get(`${product.id}:${variant.id}`), live.tier)
-        return price === undefined ? variant : { ...variant, price }
+        const prices = live.variantPrice.get(`${product.id}:${variant.id}`)
+        const price = resolveTierPrice(prices, live.tier)
+        return price === undefined ? variant : { ...variant, price, isVipPrice: isVipTierPrice(prices, live.tier) }
       })
     }
 
@@ -480,8 +625,10 @@ export function applyLiveCatalog(
       specifications: liveSpecs && Object.keys(liveSpecs).length > 0 ? liveSpecs : product.specifications,
       images: liveImages && liveImages.length > 0 ? liveImages : product.images,
       price: livePrice ?? product.price,
+      isVipPrice: livePrice !== undefined && livePriceIsVip,
       stock: overlay?.stock ?? product.stock,
       variants,
+      ...live.extras.get(product.id),
     })
   }
 
@@ -508,15 +655,23 @@ export function applyLiveCatalog(
 
     const productPrice = resolveTierPrice(live.productPrice.get(id), live.tier)
     const variantPrices = (live.variants.get(id) ?? [])
-      .map((v) => resolveTierPrice(live.variantPrice.get(`${id}:${v.legacyKey}`), live.tier))
-      .filter((value): value is number => value !== undefined)
+      .map((v) => live.variantPrice.get(`${id}:${v.legacyKey}`))
+      .map((prices) => ({ price: resolveTierPrice(prices, live.tier), isVip: isVipTierPrice(prices, live.tier) }))
+      .filter((entry): entry is { price: number; isVip: boolean } => entry.price !== undefined)
 
     // Cheapest variant price stands in as the product price when only variants
     // are priced, which mirrors displayPrice() on the storefront.
-    const price = productPrice ?? (variantPrices.length > 0 ? Math.min(...variantPrices) : undefined)
+    const cheapest = variantPrices.reduce<{ price: number; isVip: boolean } | undefined>(
+      (min, entry) => (min === undefined || entry.price < min.price ? entry : min),
+      undefined,
+    )
+    const price = productPrice ?? cheapest?.price
     if (price === undefined) continue
+    const priceIsVip = productPrice !== undefined
+      ? isVipTierPrice(live.productPrice.get(id), live.tier)
+      : Boolean(cheapest?.isVip)
 
-    fromDatabase.push({ product: buildProductFromLive(id, overlay, live, price), sortOrder: overlay.sort_order })
+    fromDatabase.push({ product: buildProductFromLive(id, overlay, live, price, priceIsVip), sortOrder: overlay.sort_order })
   }
 
   fromDatabase.sort((a, b) => a.sortOrder - b.sortOrder || a.product.name.localeCompare(b.product.name))

@@ -1,28 +1,14 @@
 "use client"
 
 import { Header } from '@/components/ui/Header'
-import { CategoryCard } from '@/components/ui/CategoryCard'
-import { ProductCard } from '@/components/ui/ProductCard'
-import { SectionHeading } from '@/components/ui/Heading'
-import { useFeaturedProducts, useCatalogProducts } from '@/lib/catalog'
-import { useStoreSettings } from '@/lib/store/settings'
+import { HomeProductSections } from '@/components/home/HomeProductSections'
 import { PromoBanners, StoreClosedNotice } from '@/components/ui/PromoBanners'
 import { Button } from '@/components/ui/Button'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
-import { ArrowRight, Search, Wrench, Smartphone, ShieldCheck, Zap, Headphones, ShoppingBag, Truck } from 'lucide-react'
+import { ArrowRight, Search, ShieldCheck, Zap, Headphones, ShoppingBag, Truck } from 'lucide-react'
 
 const EASE = [0.22, 1, 0.36, 1] as const
-
-const quickCategories = [
-  { label: 'iPhone', href: '/categories/iphone' },
-  { label: 'iPad', href: '/categories/ipad' },
-  { label: 'Mac', href: '/categories/mac' },
-  { label: 'Watch', href: '/categories/watch' },
-  { label: 'AirPods', href: '/categories/airpods' },
-  { label: 'Parts', href: '/categories/parts' },
-  { label: 'Accessories', href: '/categories/accessories' },
-]
 
 /**
  * The Retail storefront home. Reaching it at all is decided by
@@ -30,22 +16,6 @@ const quickCategories = [
  * Wholesale VIP is sent to /wholesale before this renders.
  */
 export default function Home() {
-  // Curated in Supabase (featured_products), resolved through the canonical
-  // catalog so duplicate ids use the authoritative deviceData definitions.
-  // Falls back to the bundled selection when Supabase is unavailable.
-  const featuredProducts = useFeaturedProducts()
-  // Storefront switches from /admin/settings (public.store_settings).
-  const { settings } = useStoreSettings()
-  // "New" is the admin-set products.is_new flag; no separate list is kept.
-  const newArrivals = useCatalogProducts().filter((p) => p.isNew).slice(0, 8)
-
-  const categories = [
-    { title: 'iPhone', subtitle: 'Pro & Standard', image: '/images/categories/iphone.jpg', href: '/categories/iphone' },
-    { title: 'Mac', subtitle: 'Laptops & Desktops', image: '/images/categories/mac.jpg', href: '/categories/mac' },
-    { title: 'Replacement Parts', subtitle: 'Displays & Batteries', image: '/images/categories/replacement-parts.jpg', href: '/categories/parts' },
-    { title: 'Accessories', subtitle: 'Cases & Chargers', image: '/images/categories/accessories.jpg', href: '/categories/accessories' }
-  ]
-
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
@@ -187,30 +157,12 @@ export default function Home() {
       {/* Promotional banners — managed in /admin/settings, images from Storage */}
       <PromoBanners slot="home" />
 
-      {/* Quick category chips — floating mini cards, horizontally scrollable */}
-      <section className="pt-4">
-        <div className="flex gap-2 overflow-x-auto px-4 pb-2 no-scrollbar">
-          {quickCategories.map((c, i) => (
-            <motion.div
-              key={c.label}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.35, delay: 0.03 * i, ease: EASE }}
-            >
-              <Link
-                href={c.href}
-                className="block whitespace-nowrap px-4 h-10 leading-10 rounded-full bg-surface border border-mint/80 dark:border-border text-[13px] font-semibold text-foreground shadow-card hover:bg-primary-soft hover:text-primary active:scale-95 transition-all duration-300"
-              >
-                {c.label}
-              </Link>
-            </motion.div>
-          ))}
-          <div className="w-1 shrink-0" />
-        </div>
-      </section>
+      {/* Product discovery — shared with the Wholesale home, priced for this
+          account by the database. Respects the Storefront Controls. */}
+      <HomeProductSections />
 
       {/* Trust indicators */}
-      <section className="px-4 pt-3">
+      <section className="px-4 pt-10">
         <div className="flex items-center justify-between gap-2 rounded-3xl bg-surface border border-mint/80 dark:border-border px-3 py-3 shadow-card">
           {[
             { icon: ShieldCheck, label: 'Genuine Parts' },
@@ -226,93 +178,6 @@ export default function Home() {
           ))}
         </div>
       </section>
-
-      {/* Shop by Purpose */}
-      <section className="px-4 py-11">
-        <div className="max-w-4xl mx-auto">
-          <SectionHeading title="What are you looking for?" className="sm:text-left" />
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-            {[
-              { href: '/categories', icon: Smartphone, title: 'Shop', copy: 'Buy the latest premium Apple devices and products.', cta: 'Start Shopping' },
-              { href: '/categories/parts', icon: Wrench, title: 'Repair', copy: 'Find genuine-quality replacement parts for your Apple device.', cta: 'Find Parts' },
-              { href: '/categories/accessories', icon: Headphones, title: 'Accessorize', copy: 'Find cases, chargers, cables, and premium accessories.', cta: 'View Accessories' },
-            ].map(({ href, icon: Icon, title, copy, cta }, i) => (
-              <Link key={title} href={href} className="group h-full">
-                <motion.div
-                  initial={{ opacity: 0, y: 16 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, margin: '-40px' }}
-                  whileHover={{ y: -4 }}
-                  transition={{ duration: 0.4, delay: 0.06 * i, ease: EASE }}
-                  className="bg-surface border border-mint/80 dark:border-border rounded-[26px] p-5 h-full flex flex-col shadow-card hover:shadow-float transition-shadow duration-400"
-                >
-                  <div className="w-12 h-12 rounded-2xl bg-well-strong border border-mint-deep flex items-center justify-center text-primary mb-4 group-hover:scale-110 transition-transform duration-400">
-                    <Icon size={23} strokeWidth={2} />
-                  </div>
-                  <h3 className="text-lg font-bold mb-1.5 tracking-tight">{title}</h3>
-                  <p className="text-muted-foreground text-sm flex-1 mb-4 leading-snug">{copy}</p>
-                  <div className="flex items-center text-sm font-semibold text-primary mt-auto">
-                    {cta} <ArrowRight size={16} className="ml-1 group-hover:translate-x-1 transition-transform" />
-                  </div>
-                </motion.div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Explore Categories */}
-      <section className="px-4 pb-12">
-        <div className="max-w-4xl mx-auto">
-          <SectionHeading title="Explore Categories" seeAllHref="/categories" />
-          <div className="grid grid-cols-2 gap-3 sm:gap-4">
-            {categories.map((category) => (
-              <CategoryCard key={category.title} {...category} />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Featured Products */}
-      {settings.show_featured_products && featuredProducts.length > 0 && (
-      <section className="pt-12 pb-10">
-        <div className="max-w-4xl mx-auto">
-          <div className="px-4">
-            <SectionHeading title="Featured Products" subtitle="Carefully selected highlights from our store." />
-          </div>
-
-          {/* One complete card plus a deliberate peek of the next on phones;
-              a full grid of complete cards once there is room for two.
-              `overflow-x: auto` forces overflow-y to auto as well, so the
-              vertical padding here is what keeps card shadows from clipping. */}
-          <div className="flex gap-4 px-4 pt-1 pb-6 overflow-x-auto snap-x snap-mandatory scroll-px-4 no-scrollbar sm:grid sm:grid-cols-2 sm:overflow-visible sm:snap-none sm:pb-2">
-            {featuredProducts.map(product => (
-              <ProductCard key={product.id} product={product} featured />
-            ))}
-            {/* trailing breathing room at the end of the scroll */}
-            <div className="w-1 shrink-0 sm:hidden" aria-hidden="true" />
-          </div>
-        </div>
-      </section>
-      )}
-
-      {/* New Arrivals — products an administrator has marked as new */}
-      {settings.show_new_arrivals && newArrivals.length > 0 && (
-        <section className="pb-10">
-          <div className="max-w-4xl mx-auto">
-            <div className="px-4">
-              <SectionHeading title="New Arrivals" subtitle="The latest additions to our store." />
-            </div>
-            <div className="flex gap-4 px-4 pt-1 pb-6 overflow-x-auto snap-x snap-mandatory scroll-px-4 no-scrollbar sm:grid sm:grid-cols-2 sm:overflow-visible sm:snap-none sm:pb-2">
-              {newArrivals.map(product => (
-                <ProductCard key={product.id} product={product} featured />
-              ))}
-              <div className="w-1 shrink-0 sm:hidden" aria-hidden="true" />
-            </div>
-          </div>
-        </section>
-      )}
 
       {/* Repair Center */}
       <section className="px-4 py-12">

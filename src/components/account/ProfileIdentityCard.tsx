@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, type FormEvent } from 'react'
-import { AlertCircle, Crown, LoaderCircle, Pencil, RotateCw, ShieldCheck, User } from 'lucide-react'
+import { AlertCircle, LoaderCircle, Pencil, RotateCw, ShieldCheck, User } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { AuthField } from '@/components/account/AuthShell'
+import { VipBadge } from '@/components/account/VipBadge'
 import { formatE164 } from '@/lib/auth/phone'
 import { updateOwnProfile, type CustomerProfile, type CustomerType } from '@/lib/customer/profile'
 
@@ -162,15 +163,21 @@ function SignedInIdentity({
       {/* The tier the DATABASE resolved, not the experience chosen on the
           entry screen. An expired VIP grant is shown as retail, because that is
           what the customer is actually charged. */}
-      <div className="mt-3.5 flex flex-wrap items-center gap-2">
-        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap ${
-          customerType === 'wholesale_vip'
-            ? 'border-mint-deep bg-primary-soft text-primary'
-            : 'border-border bg-muted text-muted-foreground'
-        }`}>
-          {customerType === 'wholesale_vip' ? <Crown size={12} /> : <User size={12} />}
-          {TIER_LABEL[customerType]}
-        </span>
+      <p className="mt-3.5 mb-1.5 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+        Customer type
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        {customerType === 'wholesale_vip' ? (
+          <>
+            <VipBadge />
+            <span className="text-[12px] font-semibold text-foreground whitespace-nowrap">{TIER_LABEL.wholesale_vip}</span>
+          </>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground whitespace-nowrap">
+            <User size={12} />
+            {TIER_LABEL.retail}
+          </span>
+        )}
         {vipExpired && (
           <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-600 dark:text-amber-400 whitespace-nowrap">
             Wholesale pricing expired

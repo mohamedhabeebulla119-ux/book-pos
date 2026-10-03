@@ -7,6 +7,9 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
+import { VipBadge } from '@/components/account/VipBadge'
+import { CONDITION_LABEL, snapshotImageUrl } from '@/lib/catalog'
+import type { ProductCondition } from '@/types'
 import { formatPrice } from '@/utils/formatPrice'
 import { centsToRupees } from '@/lib/admin/pricing'
 import {
@@ -46,12 +49,10 @@ export function OrderStatusBadge({ status }: { status: string }) {
 }
 
 export function TierBadge({ tier }: { tier: string }) {
-  const vip = tier === 'wholesale_vip'
+  if (tier === 'wholesale_vip') return <VipBadge label="Wholesale VIP" />
   return (
-    <span className={cn('inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap',
-      vip ? 'border-mint-deep bg-primary-soft text-primary' : 'border-border bg-muted text-muted-foreground')}>
-      {vip ? <Crown size={12} /> : <User size={12} />}
-      {vip ? 'Wholesale VIP' : 'Retail'}
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap text-muted-foreground">
+      <User size={12} /> Retail
     </span>
   )
 }
@@ -187,6 +188,10 @@ export function OrderDetail({
                       <Phone size={12} className="shrink-0" /> {detail.customer.phone}
                     </p>
                   )}
+                  {/* The tier recorded on the order, i.e. what this order was priced at. */}
+                  <p className="flex flex-wrap items-center gap-2 pt-1 text-[12px] text-muted-foreground">
+                    Customer type at purchase <TierBadge tier={detail.order.customer_type_at_purchase} />
+                  </p>
                 </div>
                 {detail.order.shipping_address && (
                   <div className="mt-3 flex items-start gap-2 rounded-xl border border-mint/70 dark:border-border bg-card px-3 py-2.5">
@@ -206,13 +211,26 @@ export function OrderDetail({
                     <li key={item.id} className="flex items-start gap-3 rounded-2xl border border-mint/70 dark:border-border bg-card p-3">
                       <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-mint/60 dark:border-border bg-well-cool">
                         {item.image_path_snapshot
-                          ? <img src={item.image_path_snapshot} alt="" className="h-full w-full object-contain mix-blend-multiply dark:mix-blend-normal" />
+                          ? <img src={snapshotImageUrl(item.image_path_snapshot)} alt="" className="h-full w-full object-contain mix-blend-multiply dark:mix-blend-normal" />
                           : <Package size={18} className="text-primary/40" />}
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="text-[13.5px] font-semibold leading-tight text-foreground">{item.product_name_snapshot}</p>
                         {item.variant_label_snapshot && (
                           <p className="text-[12px] text-muted-foreground">{item.variant_label_snapshot}</p>
+                        )}
+                        {item.condition_snapshot && item.condition_snapshot !== 'brand_new' && (
+                          <p className="text-[12px] text-amber-700 dark:text-amber-400">
+                            {CONDITION_LABEL[item.condition_snapshot as ProductCondition] ?? item.condition_snapshot}
+                            {item.condition_grade_snapshot && ` · ${item.condition_grade_snapshot}`}
+                          </p>
+                        )}
+                        {item.warranty_label_snapshot && (
+                          <p className="mt-1 text-[12px] text-muted-foreground tabular-nums">
+                            {item.base_unit_price_cents !== null && <>Base {money(item.base_unit_price_cents)} · </>}
+                            {item.warranty_label_snapshot}{' '}
+                            {item.warranty_price_cents_snapshot === 0 ? '(included)' : `+${money(item.warranty_price_cents_snapshot)}`}
+                          </p>
                         )}
                         <p className="mt-1 text-[12px] text-muted-foreground tabular-nums">
                           {item.quantity} × {money(item.unit_price_cents)}

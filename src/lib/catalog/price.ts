@@ -64,3 +64,18 @@ export function displayPrice(product: Product): number {
 export function selectedPrice(product: Product, variant: ProductVariant | undefined): number {
   return variant?.price ?? product.price
 }
+
+/**
+ * Whether displayPrice() is the customer's own wholesale VIP price — the same
+ * choice of variant, so the "VIP Price" label always describes the number
+ * beside it. Label only; the UI also requires a database-confirmed VIP.
+ */
+export function displayPriceIsVip(product: Product): boolean {
+  const variant = defaultVariant(product)
+  return Boolean(variant ? variant.isVipPrice : product.isVipPrice)
+}
+
+/** Whether selectedPrice() is the customer's own wholesale VIP price. */
+export function selectedPriceIsVip(product: Product, variant: ProductVariant | undefined): boolean {
+  return Boolean(variant ? variant.isVipPrice : product.isVipPrice)
+}

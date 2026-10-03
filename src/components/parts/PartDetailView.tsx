@@ -11,6 +11,8 @@ import { StickyActionBar } from '@/components/ui/StickyActionBar'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { getCategoryTheme } from '@/lib/categoryTheme'
 import { buildPartProduct, type PartKind } from '@/lib/partProduct'
+import { useCatalogProduct, resolveWarrantyOption } from '@/lib/catalog'
+import { WarrantyPicker, PriceBreakdown, WarrantyTerms } from '@/components/product/ProductConditionWarranty'
 import type { IPhoneModel } from '@/data/iphoneModels'
 
 interface PartDetailViewProps {
@@ -24,6 +26,12 @@ export function PartDetailView({ model, partKind }: PartDetailViewProps) {
   const { addToCart } = useCart()
   const [activeImageIndex, setActiveImageIndex] = useState(0)
   const [quantity, setQuantity] = useState(1)
+  const [selectedWarrantyId, setSelectedWarrantyId] = useState<string | undefined>(undefined)
+  // The bundled part, replaced by its live catalog product once an
+  // administrator has priced and published it — which is what brings live
+  // price, stock and the part's warranty options to this page.
+  const bundledPart = model ? buildPartProduct(model, partKind) : undefined
+  const livePart = useCatalogProduct(bundledPart?.id)
   const listHref = `/categories/replacement-parts/${partKind === 'display' ? 'displays' : 'batteries'}`
   const theme = getCategoryTheme(partKind === 'display' ? 'displays' : 'batteries')
 
@@ -39,7 +47,9 @@ export function PartDetailView({ model, partKind }: PartDetailViewProps) {
     )
   }
 
-  const product = buildPartProduct(model, partKind)
+  const product = livePart ?? bundledPart!
+  const warrantyOption = resolveWarrantyOption(product, selectedWarrantyId) ?? resolveWarrantyOption(product, undefined)
+  const unitTotal = product.price + (warrantyOption?.addOn ?? 0)
 
   return (
     <div className="flex flex-col min-h-screen pb-24">
@@ -84,7 +94,8 @@ export function PartDetailView({ model, partKind }: PartDetailViewProps) {
           </span>
         </div>
 
-        <div className="text-[26px] font-bold tracking-tight mb-6">{formatPrice(product.price)}</div>
+        <div className={`text-[26px] font-bold tracking-tight ${warrantyOption ? 'mb-3' : 'mb-6'}`}>{formatPrice(unitTotal)}</div>
+        <PriceBreakdown product={product} base={product.price} option={warrantyOption} />
 
         {/* Quantity */}
         <div className="mb-6">
@@ -127,6 +138,8 @@ export function PartDetailView({ model, partKind }: PartDetailViewProps) {
         </div>
 
         {/* Specifications */}
+        <WarrantyPicker product={product} selected={warrantyOption} onSelect={(o) => setSelectedWarrantyId(o.id)} />
+
         <div className="mb-8">
           <h3 className="text-lg font-bold tracking-tight mb-3">Specifications</h3>
           <div className="bg-surface border border-mint/80 dark:border-border rounded-[26px] px-4 shadow-card divide-y divide-mint/80 dark:divide-border">
@@ -138,12 +151,15 @@ export function PartDetailView({ model, partKind }: PartDetailViewProps) {
             ))}
           </div>
         </div>
+
+        {/* Only once live: the bundled part has no admin-managed warranty. */}
+        {livePart && <WarrantyTerms product={livePart} />}
       </div>
 
       <StickyActionBar
         title={product.name}
-        price={formatPrice(product.price * quantity)}
-        onAddToCart={() => addToCart(product, undefined, quantity)}
+        price={formatPrice(unitTotal * quantity)}
+        onAddToCart={() => addToCart(product, undefined, quantity, warrantyOption)}
       />
     </div>
   )

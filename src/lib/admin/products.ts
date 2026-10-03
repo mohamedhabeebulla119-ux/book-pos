@@ -94,6 +94,20 @@ export interface ProductPatch {
   warranty_coverage: string | null
   lifecycle_status: string | null
   is_new: boolean
+  /** brand_new | pre_owned (refurbished is not offered in the UI yet). */
+  condition: string
+  condition_grade_id: string | null
+  battery_health: number | null
+  cycle_count: number | null
+  physical_condition: string | null
+  accessories_included: string | null
+  device_notes: string | null
+  /** none | included | optional_paid */
+  warranty_type: string
+  warranty_title: string | null
+  warranty_description: string | null
+  warranty_covered: string[]
+  warranty_excluded: string[]
 }
 
 /** Variant fields an admin may edit. legacy_key is NOT among them. */
@@ -508,6 +522,9 @@ export async function createProduct(input: NewProductInput): Promise<CreateProdu
     warranty_duration: input.warranty_duration,
     warranty_months: input.warranty_months,
     warranty_coverage: input.warranty_coverage,
+    // Same rule migration 20261002120000 applied to existing products; the
+    // full warranty (type, options, terms) is then managed in the editor.
+    warranty_type: input.warranty_status === 'active' ? 'included' : 'none',
     // Never active on insert — see the note above.
     is_active: false,
   })
@@ -676,7 +693,7 @@ export async function deleteVariant(variantId: string): Promise<void> {
 
 export async function addImage(
   productId: string,
-  input: { path: string; alt: string | null },
+  input: { path: string; alt: string | null; storage_bucket?: string | null },
   existing: ImageRow[],
 ): Promise<ImageRow> {
   const { data, error } = await getSupabaseClient()
@@ -685,6 +702,8 @@ export async function addImage(
       product_id: productId,
       path: input.path.trim(),
       alt: input.alt,
+      // NULL = a bundled /images/... path; 'product-images' = an uploaded file.
+      storage_bucket: input.storage_bucket ?? null,
       position: existing.length,
       // The first image a product gets is its card image.
       is_primary: existing.length === 0,
@@ -696,9 +715,19 @@ export async function addImage(
   return data
 }
 
+/**
+ * Removes the image row; an UPLOADED file is then removed from Storage too.
+ * Bundled files ship in the APK and are never touched.
+ */
 export async function deleteImage(imageId: string): Promise<void> {
-  const { error } = await getSupabaseClient().from('product_images').delete().eq('id', imageId)
+  const supabase = getSupabaseClient()
+  const { data, error } = await supabase
+    .from('product_images').delete().eq('id', imageId).select('path, storage_bucket').maybeSingle()
   if (error) throw error
+  if (data?.storage_bucket) {
+    // Best-effort: a stale file costs storage, not correctness.
+    await supabase.storage.from(data.storage_bucket).remove([data.path])
+  }
 }
 
 /** Exactly one primary image per product; the storefront shows it first. */
