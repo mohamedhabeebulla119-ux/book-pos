@@ -14,7 +14,7 @@ import { Minus, Plus, Trash2, ShoppingBag, Star, Heart, ArrowRight, Box, ShieldC
 import type { CartItem } from '@/types'
 import { ConditionChip } from '@/components/product/ProductConditionWarranty'
 import { placeOrder, type PlacedOrder } from '@/lib/customer/orders'
-import { centsToRupees } from '@/lib/catalog'
+import { centsToRupees, useCatalogProduct } from '@/lib/catalog'
 
 /**
  * The one line under the product name that tells the customer exactly which
@@ -49,6 +49,8 @@ function CartItemCard({ item }: { item: CartItem }) {
   // when the line was added, so the cart agrees with the card and the detail page.
   const unitPrice = resolveUnitPrice(item)
   const warranty = warrantyFor(item)
+  const liveProduct = useCatalogProduct(item.product.id)
+  const liveVariant = item.variant ? liveProduct?.variants?.find((v) => v.id === item.variant!.id) : undefined
   const lineTotal = unitPrice * item.quantity
   const selection = describeSelection(item)
   const wishlisted = isWishlisted(item.product.id)
@@ -115,7 +117,8 @@ function CartItemCard({ item }: { item: CartItem }) {
           </p>
         )}
 
-        <ConditionChip product={item.product} className="mt-1.5" />
+        {/* The line's own variant's condition, read live — never the product's. */}
+        <ConditionChip product={liveProduct ?? item.product} variant={liveVariant ?? item.variant} className="mt-1.5" />
 
         {warranty && (
           <p className={`mt-1.5 flex items-center gap-1.5 text-xs ${warranty.unavailable ? 'text-red-500' : 'text-muted-foreground'}`}>

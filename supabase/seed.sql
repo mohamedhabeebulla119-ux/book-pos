@@ -4884,4 +4884,24 @@ insert into public.featured_products (slot, product_id, position)
 values ('home', 'part-iphone-15-pro-display', 5)
 on conflict (slot, product_id) do update set position = excluded.position, is_active = true;
 
+-- ---------- derived condition / warranty rows (mirror migrations 20261002120000 + 20261003120000) ----------
+update public.products
+   set warranty_type = case when warranty_status = 'active' then 'included' else 'none' end
+ where warranty_type is distinct from case when warranty_status = 'active' then 'included' else 'none' end;
+insert into public.product_warranty_plans
+  (product_id, variant_id, warranty_type, warranty_duration, warranty_months,
+   warranty_title, warranty_description, warranty_covered, warranty_excluded)
+select p.id, null, p.warranty_type, p.warranty_duration, p.warranty_months,
+       p.warranty_title, p.warranty_description, p.warranty_covered, p.warranty_excluded
+from public.products p
+on conflict (product_id, variant_id) do nothing;
+insert into public.product_conditions
+  (product_id, variant_id, condition, condition_grade_id, battery_health, cycle_count,
+   physical_condition, accessories_included, device_notes)
+select p.id, null, p.condition, p.condition_grade_id, p.battery_health, p.cycle_count,
+       p.physical_condition, p.accessories_included, p.device_notes
+from public.products p
+where not exists (select 1 from public.product_variants v where v.product_id = p.id)
+on conflict (product_id, variant_id) do nothing;
+
 commit;

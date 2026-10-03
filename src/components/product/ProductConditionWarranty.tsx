@@ -1,46 +1,76 @@
 "use client"
 
 import { BatteryMedium, Check, Package, Recycle, ShieldCheck, ShieldOff, Sparkles, X } from 'lucide-react'
-import type { Product, WarrantyOption } from '@/types'
+import type { Product, ProductVariant, WarrantyOption } from '@/types'
 import { InfoBox } from '@/components/ui/InfoBox'
 import { formatPrice } from '@/utils/formatPrice'
 import { cn } from '@/lib/utils'
-import { CONDITION_LABEL, durationLabel, hasWarrantyChoice, warrantyNoun } from '@/lib/catalog'
+import {
+  durationLabel, hasWarrantyChoice, warrantyNoun, effectiveWarrantyPlan,
+  itemCondition, itemConditionLabel, productConditionSummary, hasPreOwned,
+} from '@/lib/catalog'
 
 /**
  * Condition and warranty presentation shared by the product page, the parts
- * page and the product card. Every value is read from the product as the live
- * catalog built it (products.condition, condition_grades,
- * product_warranty_options) — nothing is defaulted or invented here, and
- * nothing here computes a price the customer will be charged.
+ * page, the cart and the product card. Every value is read from the product /
+ * variant as the live catalog built it (product_conditions, condition_grades,
+ * product_warranty_plans, product_warranty_options) — nothing is defaulted or
+ * invented here, and nothing here computes a price the customer will be charged.
+ *
+ * Pass `variant` wherever one is chosen: condition and warranty belong to the
+ * variant. Without one, the chip summarises the product truthfully.
  */
 
-/** "Brand New" / "Pre-Owned · Grade A". Renders nothing until live data says which. */
-export function ConditionChip({ product, className }: { product: Product; className?: string }) {
-  if (!product.condition) return null
-  const used = product.condition !== 'brand_new'
-  const grade = product.preOwned?.grade
+/**
+ * With a variant (or for a product without variants): that item's condition —
+ * "Brand New" / "Pre-Owned · Grade A" / "Pre-Owned".
+ * Without one, on a product with variants: the card summary — the shared
+ * condition, or "New & Pre-Owned" when the variants differ.
+ * Renders nothing until live data says, and nothing for a condition the store
+ * does not offer. Brand New is neutral; anything pre-owned is highlighted.
+ */
+export function ConditionChip({
+  product, variant, className,
+}: {
+  product: Product
+  variant?: ProductVariant
+  className?: string
+}) {
+  const label = variant ? itemConditionLabel(product, variant) : productConditionSummary(product)
+  if (!label) return null
+  const used = variant ? variant.condition === 'pre_owned' : hasPreOwned(product)
   return (
     <span
       className={cn(
         'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide whitespace-nowrap',
         used
           ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400'
-          : 'border-mint-deep bg-primary-soft text-primary',
+          : 'border-border bg-muted text-muted-foreground',
         className,
       )}
     >
       {used ? <Recycle size={10} strokeWidth={2.4} aria-hidden="true" /> : <Sparkles size={10} strokeWidth={2.4} aria-hidden="true" />}
-      {CONDITION_LABEL[product.condition]}
-      {used && grade && <span className="font-semibold normal-case tracking-normal">· {grade.label}</span>}
+      {label}
     </span>
   )
 }
 
-/** Grade, battery health and the rest of what the admin recorded for a pre-owned unit. */
-export function PreOwnedDetails({ product }: { product: Product }) {
-  const details = product.preOwned
-  if (product.condition !== 'pre_owned' || !details) return null
+/** The labelled "Condition" line on the product page — of the SELECTED variant. */
+export function ConditionLine({ product, variant }: { product: Product; variant?: ProductVariant }) {
+  if (!itemConditionLabel(product, variant)) return null
+  return (
+    <p className="mb-4 flex items-center gap-2 text-sm">
+      <span className="font-semibold text-muted-foreground">Condition</span>
+      <ConditionChip product={product} variant={variant} className="py-1 text-[11px]" />
+    </p>
+  )
+}
+
+/** Grade, battery health and the rest of what the admin recorded — for the selected variant. */
+export function PreOwnedDetails({ product, variant }: { product: Product; variant?: ProductVariant }) {
+  const item = itemCondition(product, variant)
+  const details = item?.preOwned
+  if (item?.condition !== 'pre_owned' || !details) return null
 
   const rows: { label: string; value: string }[] = []
   if (details.grade) rows.push({ label: 'Condition grade', value: details.grade.label })
@@ -79,16 +109,17 @@ export function PreOwnedDetails({ product }: { product: Product }) {
   )
 }
 
-/** The warranty choice for an optional_paid product. */
+/** The warranty choice for the plan in force (variant override, else product default). */
 export function WarrantyPicker({
-  product, selected, onSelect,
+  product, variant, selected, onSelect,
 }: {
   product: Product
+  variant?: ProductVariant
   selected: WarrantyOption | undefined
   onSelect: (option: WarrantyOption) => void
 }) {
-  if (!hasWarrantyChoice(product)) return null
-  const options = product.warrantyPlan!.options
+  if (!hasWarrantyChoice(product, variant)) return null
+  const options = effectiveWarrantyPlan(product, variant)!.options
 
   return (
     <fieldset className="mb-8">
@@ -171,8 +202,12 @@ export function PriceBreakdown({
  * covered / not-covered lists. Without it (bundled catalog, or before the
  * migration): the older WarrantyInfo block exactly as before.
  */
-export function WarrantyTerms({ product }: { product: Product }) {
-  const plan = product.warrantyPlan
+export function WarrantyTerms({ product, variant }: { product: Product; variant?: ProductVariant }) {
+  // The plan in force for the selected variant: its override, else the product's.
+  const plan = effectiveWarrantyPlan(product, variant)
+  // The older free-text WarrantyInfo describes the PRODUCT plan only; it must
+  // never be shown under a variant's own override.
+  const legacy = plan === product.warrantyPlan ? product.warrantyInfo : undefined
   const noun = warrantyNoun(product)
 
   if (!plan) {
@@ -211,7 +246,9 @@ export function WarrantyTerms({ product }: { product: Product }) {
     )
   }
 
-  const included = plan.type === 'included' ? product.warrantyInfo : undefined
+  const included = plan.type === 'included'
+    ? { duration: plan.duration ?? legacy?.duration, coverage: legacy?.coverage }
+    : undefined
   const title = plan.title
     || (included?.duration ? `${included.duration} ${noun}` : noun)
   const hasTerms = plan.description || plan.covered.length > 0 || plan.excluded.length > 0 || included?.coverage

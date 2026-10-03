@@ -37,18 +37,25 @@ values ('a4444444-4444-4444-4444-444444444444', 'admin')
 on conflict (profile_id, role) do nothing;
 
 -- Catalog fixtures (as postgres): a display and a battery that sell optional
--- warranties, plus a VIP price on one iPhone variant.
-update public.products set warranty_type = 'optional_paid'
- where id in ('part-iphone-15-pro-display', 'part-iphone-15-pro-battery');
+-- warranties, plus a VIP price on one iPhone variant. Since migration
+-- 20261003120000 the warranty lives on the product's plan (variant_id NULL).
+update public.product_warranty_plans set warranty_type = 'optional_paid'
+ where product_id in ('part-iphone-15-pro-display', 'part-iphone-15-pro-battery') and variant_id is null;
+-- Earlier fixtures may have left options on these plans; start clean.
+delete from public.product_warranty_options
+ where product_id in ('part-iphone-15-pro-display', 'part-iphone-15-pro-battery');
 
 insert into public.product_warranty_options
-  (id, product_id, duration_months, additional_price_cents, is_enabled, is_default, display_order)
-values
-  ('b0000000-0000-0000-0000-000000000001', 'part-iphone-15-pro-display', 1, 0,      true,  true,  0),
-  ('b0000000-0000-0000-0000-000000000003', 'part-iphone-15-pro-display', 3, 150000, true,  false, 1),
-  ('b0000000-0000-0000-0000-000000000006', 'part-iphone-15-pro-display', 6, 300000, true,  false, 2),
-  ('b0000000-0000-0000-0000-000000000012', 'part-iphone-15-pro-display', 12, 500000, false, false, 3),
-  ('c0000000-0000-0000-0000-000000000003', 'part-iphone-15-pro-battery', 3, 75000,  true,  true,  0);
+  (id, product_id, plan_id, duration_months, additional_price_cents, is_enabled, is_default, display_order)
+select v.id::uuid, v.product_id, pl.id, v.months, v.cents, v.enabled, v.is_default, v.ord
+from (values
+  ('b0000000-0000-0000-0000-000000000001', 'part-iphone-15-pro-display', 1, 0::bigint, true,  true,  0),
+  ('b0000000-0000-0000-0000-000000000003', 'part-iphone-15-pro-display', 3, 150000,    true,  false, 1),
+  ('b0000000-0000-0000-0000-000000000006', 'part-iphone-15-pro-display', 6, 300000,    true,  false, 2),
+  ('b0000000-0000-0000-0000-000000000012', 'part-iphone-15-pro-display', 12, 500000,   false, false, 3),
+  ('c0000000-0000-0000-0000-000000000003', 'part-iphone-15-pro-battery', 3, 75000,     true,  true,  0)
+) as v(id, product_id, months, cents, enabled, is_default, ord)
+join public.product_warranty_plans pl on pl.product_id = v.product_id and pl.variant_id is null;
 
 insert into public.product_prices (product_id, variant_id, tier_code, price_cents, min_qty)
 select 'iphone-17-pro-max', v.id, 'wholesale_vip', 30000000, 1
@@ -72,8 +79,9 @@ begin
   perform set_config('request.jwt.claims', '{"sub":"a1111111-1111-1111-1111-111111111111","role":"authenticated"}', true);
   v_err := null;
   begin
-    insert into public.product_warranty_options (product_id, duration_months, additional_price_cents)
-    values ('part-iphone-15-pro-display', 24, 0);
+    insert into public.product_warranty_options (product_id, plan_id, duration_months, additional_price_cents)
+    select 'part-iphone-15-pro-display', id, 24, 0 from public.product_warranty_plans
+     where product_id = 'part-iphone-15-pro-display' and variant_id is null;
   exception when others then v_err := sqlerrm; end;
   if v_err is null then raise exception 'W1 FAILED - retail customer inserted a warranty option'; end if;
 
@@ -85,6 +93,9 @@ begin
   update public.products set warranty_type = 'none' where id = 'part-iphone-15-pro-display';
   get diagnostics v_count = row_count;
   if v_count <> 0 then raise exception 'W1 FAILED - retail customer changed a warranty type'; end if;
+  update public.product_warranty_plans set warranty_type = 'none' where product_id = 'part-iphone-15-pro-display';
+  get diagnostics v_count = row_count;
+  if v_count <> 0 then raise exception 'W1 FAILED - retail customer changed a warranty plan'; end if;
 
   v_err := null;
   begin
@@ -287,10 +298,11 @@ begin
   perform set_config('role', 'authenticated', true);
   perform set_config('request.jwt.claims', '{"sub":"a4444444-4444-4444-4444-444444444444","role":"authenticated"}', true);
   insert into public.condition_grades (code, label, description) values ('TEST', 'Test grade', 'fixture');
-  insert into public.product_warranty_options (product_id, duration_months, additional_price_cents, display_order)
-  values ('part-iphone-15-pro-battery', 6, 150000, 1);
-  update public.products set warranty_title = 'Battery warranty', warranty_covered = array['Battery defects']
-   where id = 'part-iphone-15-pro-battery';
+  insert into public.product_warranty_options (product_id, plan_id, duration_months, additional_price_cents, display_order)
+  select 'part-iphone-15-pro-battery', id, 6, 150000, 1 from public.product_warranty_plans
+   where product_id = 'part-iphone-15-pro-battery' and variant_id is null;
+  update public.product_warranty_plans set warranty_title = 'Battery warranty', warranty_covered = array['Battery defects']
+   where product_id = 'part-iphone-15-pro-battery' and variant_id is null;
   get diagnostics v_count = row_count;
   v_err := null;
   begin
@@ -329,9 +341,10 @@ begin
    where (warranty_status = 'active') <> (warranty_type = 'included')
      and id not in ('part-iphone-15-pro-display', 'part-iphone-15-pro-battery');
   if v_count <> 0 then raise exception 'W13 FAILED - % products with a mismatched warranty_type backfill', v_count; end if;
-  select count(*) into v_count from public.products where condition <> 'brand_new';
-  if v_count <> 0 then raise exception 'W13 FAILED - existing products not defaulted to brand_new'; end if;
-  raise notice 'W13 ok - existing products: brand_new, warranty_type backfilled from warranty_status';
+  select count(*) into v_count from public.products p
+   where not exists (select 1 from public.product_warranty_plans pl where pl.product_id = p.id and pl.variant_id is null);
+  if v_count <> 0 then raise exception 'W13 FAILED - % products without a product-level warranty plan', v_count; end if;
+  raise notice 'W13 ok - warranty_type backfilled from warranty_status; every product has a warranty plan';
 
   raise notice 'ALL WARRANTY/ORDER CHECKS PASSED';
 end;

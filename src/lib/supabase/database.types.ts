@@ -785,6 +785,73 @@ export type Database = {
           },
         ]
       }
+      product_conditions: {
+        Row: {
+          accessories_included: string | null
+          battery_health: number | null
+          condition: string
+          condition_grade_id: string | null
+          created_at: string
+          cycle_count: number | null
+          device_notes: string | null
+          id: string
+          physical_condition: string | null
+          product_id: string
+          updated_at: string
+          variant_id: string | null
+        }
+        Insert: {
+          accessories_included?: string | null
+          battery_health?: number | null
+          condition: string
+          condition_grade_id?: string | null
+          created_at?: string
+          cycle_count?: number | null
+          device_notes?: string | null
+          id?: string
+          physical_condition?: string | null
+          product_id: string
+          updated_at?: string
+          variant_id?: string | null
+        }
+        Update: {
+          accessories_included?: string | null
+          battery_health?: number | null
+          condition?: string
+          condition_grade_id?: string | null
+          created_at?: string
+          cycle_count?: number | null
+          device_notes?: string | null
+          id?: string
+          physical_condition?: string | null
+          product_id?: string
+          updated_at?: string
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_conditions_condition_grade_id_fkey"
+            columns: ["condition_grade_id"]
+            isOneToOne: false
+            referencedRelation: "condition_grades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_conditions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_conditions_variant_fk"
+            columns: ["variant_id", "product_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id", "product_id"]
+          },
+        ]
+      }
       product_images: {
         Row: {
           alt: string | null
@@ -795,6 +862,7 @@ export type Database = {
           position: number
           product_id: string
           storage_bucket: string | null
+          variant_id: string | null
         }
         Insert: {
           alt?: string | null
@@ -805,6 +873,7 @@ export type Database = {
           position?: number
           product_id: string
           storage_bucket?: string | null
+          variant_id?: string | null
         }
         Update: {
           alt?: string | null
@@ -815,6 +884,7 @@ export type Database = {
           position?: number
           product_id?: string
           storage_bucket?: string | null
+          variant_id?: string | null
         }
         Relationships: [
           {
@@ -823,6 +893,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "products"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_images_variant_fk"
+            columns: ["variant_id", "product_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id", "product_id"]
           },
         ]
       }
@@ -988,6 +1065,7 @@ export type Database = {
           id: string
           is_default: boolean
           is_enabled: boolean
+          plan_id: string
           product_id: string
           updated_at: string
         }
@@ -999,6 +1077,7 @@ export type Database = {
           id?: string
           is_default?: boolean
           is_enabled?: boolean
+          plan_id: string
           product_id: string
           updated_at?: string
         }
@@ -1010,16 +1089,84 @@ export type Database = {
           id?: string
           is_default?: boolean
           is_enabled?: boolean
+          plan_id?: string
           product_id?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "product_warranty_options_plan_fk"
+            columns: ["plan_id", "product_id"]
+            isOneToOne: false
+            referencedRelation: "product_warranty_plans"
+            referencedColumns: ["id", "product_id"]
+          },
           {
             foreignKeyName: "product_warranty_options_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_warranty_plans: {
+        Row: {
+          created_at: string
+          id: string
+          product_id: string
+          updated_at: string
+          variant_id: string | null
+          warranty_covered: string[]
+          warranty_description: string | null
+          warranty_duration: string | null
+          warranty_excluded: string[]
+          warranty_months: number | null
+          warranty_title: string | null
+          warranty_type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          product_id: string
+          updated_at?: string
+          variant_id?: string | null
+          warranty_covered?: string[]
+          warranty_description?: string | null
+          warranty_duration?: string | null
+          warranty_excluded?: string[]
+          warranty_months?: number | null
+          warranty_title?: string | null
+          warranty_type?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          product_id?: string
+          updated_at?: string
+          variant_id?: string | null
+          warranty_covered?: string[]
+          warranty_description?: string | null
+          warranty_duration?: string | null
+          warranty_excluded?: string[]
+          warranty_months?: number | null
+          warranty_title?: string | null
+          warranty_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_warranty_plans_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_warranty_plans_variant_fk"
+            columns: ["variant_id", "product_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id", "product_id"]
           },
         ]
       }

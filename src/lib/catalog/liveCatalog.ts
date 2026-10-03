@@ -119,19 +119,35 @@ interface VariantOverlay {
   sortOrder: number
 }
 
-/** Condition and warranty, read separately from the core catalog (see fetchProductExtras). */
-export interface ProductExtras {
+/** One product_conditions row, mapped for the storefront. */
+export interface ItemConditionData {
   condition: ProductCondition
   preOwned?: PreOwnedDetails
-  warrantyPlan: ProductWarranty
 }
+
+/**
+ * Condition and warranty data, keyed like product_prices: `product_id` for the
+ * product-level row/plan (variant_id NULL), `${product_id}:${legacy_key}` for a
+ * variant's. Read separately from the core catalog (see fetchProductExtras).
+ */
+export interface CatalogExtras {
+  /** False when the query failed — products then carry no condition/warranty. */
+  loaded: boolean
+  conditions: Map<string, ItemConditionData>
+  plans: Map<string, ProductWarranty>
+}
+
+const EMPTY_EXTRAS: CatalogExtras = { loaded: false, conditions: new Map(), plans: new Map() }
 
 export interface LiveCatalogData {
   activeIds: Set<string>
   product: Map<string, ProductOverlay>
   variants: Map<string, VariantOverlay[]>
   specs: Map<string, Record<string, string>>
+  /** product_id -> images shared by all variants (variant_id NULL), primary first. */
   images: Map<string, string[]>
+  /** `${product_id}:${legacy_key}` -> images assigned to that variant only. */
+  variantImages: Map<string, string[]>
   /** product_id -> compatibility labels, in stored order. */
   compatibility: Map<string, string[]>
   /** category_id -> display name, for products this build has never seen. */
@@ -148,11 +164,11 @@ export interface LiveCatalogData {
    */
   featuredIds: string[] | null
   /**
-   * product_id -> condition + warranty. Empty when that query failed (for
-   * example before the migration that adds it is applied), in which case
-   * products simply carry no condition/warranty data — never a broken store.
+   * Conditions and warranty plans (product-level and per variant). Not loaded
+   * when that query failed, in which case products simply carry no
+   * condition/warranty data — never a broken store.
    */
-  extras: Map<string, ProductExtras>
+  extras: CatalogExtras
   /**
    * The tier this catalog was resolved AT, read from the caller's own profile —
    * not guessed from the price rows that happened to come back.
@@ -205,62 +221,60 @@ function isWarrantyType(value: string): value is WarrantyType {
 }
 
 /**
- * Product condition, pre-owned details, warranty terms and warranty options.
+ * Conditions (product_conditions), warranty plans (product_warranty_plans) and
+ * their options, keyed by product or by variant legacy_key.
  *
- * Deliberately NON-FATAL, like featured products: these come from columns and
- * tables added by a later migration, and a build that reaches customers before
- * that migration is applied must keep its live prices rather than fall back to
- * the bundled catalog. Any failure yields an empty map.
+ * Deliberately NON-FATAL, like featured products: a failure here must not cost
+ * the customer live prices, so it yields "not loaded" instead of throwing.
  *
- * RLS returns only enabled options of active products, and only active grades.
+ * RLS returns rows of active products only, enabled options only, and active
+ * grades only.
  */
-async function fetchProductExtras(): Promise<Map<string, ProductExtras>> {
+async function fetchProductExtras(
+  variantKeyById: Map<string, { productId: string; legacyKey: string }>,
+): Promise<CatalogExtras> {
   const supabase = getSupabaseClient()
-  const extras = new Map<string, ProductExtras>()
 
-  const [productsResult, optionsResult, gradesResult] = await Promise.all([
+  const [conditionsResult, plansResult, optionsResult, gradesResult] = await Promise.all([
     supabase
-      .from('products')
-      .select(
-        'id, condition, condition_grade_id, battery_health, cycle_count, physical_condition, accessories_included, device_notes, warranty_type, warranty_title, warranty_description, warranty_covered, warranty_excluded',
-      )
-      .eq('is_active', true),
+      .from('product_conditions')
+      .select('product_id, variant_id, condition, condition_grade_id, battery_health, cycle_count, physical_condition, accessories_included, device_notes'),
+    supabase
+      .from('product_warranty_plans')
+      .select('id, product_id, variant_id, warranty_type, warranty_duration, warranty_months, warranty_title, warranty_description, warranty_covered, warranty_excluded'),
     supabase
       .from('product_warranty_options')
-      .select('id, product_id, duration_months, additional_price_cents, is_default, display_order')
+      .select('id, plan_id, duration_months, additional_price_cents, is_default, display_order')
       .order('display_order', { ascending: true }),
     supabase.from('condition_grades').select('id, code, label, description'),
   ])
 
-  if (productsResult.error || optionsResult.error || gradesResult.error) {
+  const failure = conditionsResult.error ?? plansResult.error ?? optionsResult.error ?? gradesResult.error
+  if (failure) {
     if (process.env.NODE_ENV !== 'production') {
-      console.info('[catalog] condition/warranty data unavailable:',
-        (productsResult.error ?? optionsResult.error ?? gradesResult.error)?.message)
+      console.info('[catalog] condition/warranty data unavailable:', failure.message)
     }
-    return extras
+    return EMPTY_EXTRAS
+  }
+
+  /** The key a row is stored under, or null for a variant the catalog does not know. */
+  function keyFor(productId: string, variantId: string | null): string | null {
+    if (variantId === null) return productId
+    const mapped = variantKeyById.get(variantId)
+    return mapped ? `${productId}:${mapped.legacyKey}` : null
   }
 
   const grades = new Map(
     (gradesResult.data ?? []).map((g) => [g.id, { code: g.code, label: g.label, description: g.description ?? undefined }]),
   )
 
-  const options = new Map<string, ProductWarranty['options']>()
-  for (const row of optionsResult.data ?? []) {
-    const list = options.get(row.product_id) ?? []
-    list.push({
-      id: row.id,
-      months: row.duration_months,
-      addOn: centsToRupees(row.additional_price_cents),
-      isDefault: row.is_default,
-    })
-    options.set(row.product_id, list)
-  }
-
-  for (const row of productsResult.data ?? []) {
-    const condition = isCondition(row.condition) ? row.condition : 'brand_new'
-    extras.set(row.id, {
-      condition,
-      preOwned: condition === 'pre_owned'
+  const conditions = new Map<string, ItemConditionData>()
+  for (const row of conditionsResult.data ?? []) {
+    const key = keyFor(row.product_id, row.variant_id)
+    if (!key || !isCondition(row.condition)) continue
+    conditions.set(key, {
+      condition: row.condition,
+      preOwned: row.condition === 'pre_owned'
         ? {
             grade: row.condition_grade_id ? grades.get(row.condition_grade_id) : undefined,
             batteryHealth: row.battery_health ?? undefined,
@@ -270,18 +284,38 @@ async function fetchProductExtras(): Promise<Map<string, ProductExtras>> {
             deviceNotes: row.device_notes ?? undefined,
           }
         : undefined,
-      warrantyPlan: {
-        type: isWarrantyType(row.warranty_type) ? row.warranty_type : 'none',
-        title: row.warranty_title ?? undefined,
-        description: row.warranty_description ?? undefined,
-        covered: row.warranty_covered ?? [],
-        excluded: row.warranty_excluded ?? [],
-        options: options.get(row.id) ?? [],
-      },
     })
   }
 
-  return extras
+  const optionsByPlan = new Map<string, ProductWarranty['options']>()
+  for (const row of optionsResult.data ?? []) {
+    const list = optionsByPlan.get(row.plan_id) ?? []
+    list.push({
+      id: row.id,
+      months: row.duration_months,
+      addOn: centsToRupees(row.additional_price_cents),
+      isDefault: row.is_default,
+    })
+    optionsByPlan.set(row.plan_id, list)
+  }
+
+  const plans = new Map<string, ProductWarranty>()
+  for (const row of plansResult.data ?? []) {
+    const key = keyFor(row.product_id, row.variant_id)
+    if (!key) continue
+    plans.set(key, {
+      type: isWarrantyType(row.warranty_type) ? row.warranty_type : 'none',
+      duration: row.warranty_duration ?? undefined,
+      months: row.warranty_months ?? undefined,
+      title: row.warranty_title ?? undefined,
+      description: row.warranty_description ?? undefined,
+      covered: row.warranty_covered ?? [],
+      excluded: row.warranty_excluded ?? [],
+      options: optionsByPlan.get(row.id) ?? [],
+    })
+  }
+
+  return { loaded: true, conditions, plans }
 }
 
 /**
@@ -317,7 +351,7 @@ export async function fetchLiveCatalog(): Promise<LiveCatalogData> {
 
   const [
     tier, productsResult, variantsResult, specsResult, imagesResult,
-    compatibilityResult, categoriesResult, pricesResult, featuredResult, extras,
+    compatibilityResult, categoriesResult, pricesResult, featuredResult,
   ] =
     await Promise.all([
       fetchCallerTier(),
@@ -332,7 +366,7 @@ export async function fetchLiveCatalog(): Promise<LiveCatalogData> {
         .select('id, product_id, legacy_key, name, color, color_code, storage, sort_order')
         .order('sort_order', { ascending: true }),
       supabase.from('product_specs').select('product_id, label, value, position').order('position', { ascending: true }),
-      supabase.from('product_images').select('product_id, path, storage_bucket, position, is_primary').order('position', { ascending: true }),
+      supabase.from('product_images').select('product_id, variant_id, path, storage_bucket, position, is_primary').order('position', { ascending: true }),
       supabase.from('product_compatibility').select('product_id, label, position').order('position', { ascending: true }),
       supabase.from('categories').select('id, name').eq('is_active', true),
       supabase.from('my_effective_prices').select('product_id, variant_id, tier_code, price_cents'),
@@ -342,7 +376,6 @@ export async function fetchLiveCatalog(): Promise<LiveCatalogData> {
         .eq('slot', 'home')
         .eq('is_active', true)
         .order('position', { ascending: true }),
-      fetchProductExtras(),
     ])
 
   if (productsResult.error) throw productsResult.error
@@ -392,15 +425,28 @@ export async function fetchLiveCatalog(): Promise<LiveCatalogData> {
   }
 
   // Ordered by position already; a row flagged is_primary is moved to the
-  // front, because the storefront treats images[0] as the card image.
+  // front, because the storefront treats images[0] as the card image. Shared
+  // images (variant_id NULL) and variant-only images are kept apart.
   const images = new Map<string, string[]>()
+  const variantImages = new Map<string, string[]>()
   for (const row of imagesResult.data ?? []) {
-    const list = images.get(row.product_id) ?? []
     const url = productImageUrl(row)
+    let target = images
+    let key = row.product_id
+    if (row.variant_id) {
+      const mapped = variantKeyById.get(row.variant_id)
+      if (!mapped) continue
+      target = variantImages
+      key = `${row.product_id}:${mapped.legacyKey}`
+    }
+    const list = target.get(key) ?? []
     if (row.is_primary) list.unshift(url)
     else list.push(url)
-    images.set(row.product_id, list)
+    target.set(key, list)
   }
+
+  // Needs the variant uuid -> legacy_key map built above.
+  const extras = await fetchProductExtras(variantKeyById)
 
   const compatibility = new Map<string, string[]>()
   for (const row of compatibilityResult.data ?? []) {
@@ -453,7 +499,7 @@ export async function fetchLiveCatalog(): Promise<LiveCatalogData> {
   const featuredIds = featuredRows ? featuredRows.map((row) => row.product_id) : null
 
   return {
-    activeIds, product, variants, specs, images, compatibility, categoryName,
+    activeIds, product, variants, specs, images, variantImages, compatibility, categoryName,
     productPrice, variantPrice, featuredIds, extras, tier,
   }
 }
@@ -539,7 +585,6 @@ function buildProductFromLive(
     status: (overlay.lifecycle_status as Product['status']) ?? undefined,
     isVipPrice: priceIsVip,
     variants: buildLiveVariants(id, live, price, priceIsVip),
-    ...live.extras.get(id),
   }
 }
 
@@ -628,7 +673,6 @@ export function applyLiveCatalog(
       isVipPrice: livePrice !== undefined && livePriceIsVip,
       stock: overlay?.stock ?? product.stock,
       variants,
-      ...live.extras.get(product.id),
     })
   }
 
@@ -677,7 +721,56 @@ export function applyLiveCatalog(
   fromDatabase.sort((a, b) => a.sortOrder - b.sortOrder || a.product.name.localeCompare(b.product.name))
   for (const entry of fromDatabase) merged.push(entry.product)
 
-  return merged
+  return merged.map((p) => withItemData(p, live))
+}
+
+/**
+ * Attaches condition, warranty plans and variant photos — the per-item data —
+ * to a built product, following the same rules as place_order():
+ *
+ *   - each variant gets ITS OWN condition row (none = Brand New), its own
+ *     warranty override if any, and its own photos;
+ *   - only a product WITHOUT variants gets a product-level condition; a product
+ *     with variants never does, so nothing can present one variant's condition
+ *     as the product's;
+ *   - the product carries its default warranty plan.
+ *
+ * Until the extras have loaded, no condition or plan is attached at all.
+ */
+function withItemData(product: Product, live: LiveCatalogData): Product {
+  const { extras } = live
+  const hasVariants = (product.variants?.length ?? 0) > 0
+
+  const variants = product.variants?.map((variant): ProductVariant => {
+    const key = `${product.id}:${variant.id}`
+    const own = live.variantImages.get(key)
+    const item = extras.conditions.get(key)
+    return {
+      ...variant,
+      ...(own && own.length > 0 && { images: own }),
+      ...(extras.loaded && {
+        condition: item?.condition ?? 'brand_new',
+        preOwned: item?.preOwned,
+        warrantyPlan: extras.plans.get(key),
+      }),
+    }
+  })
+
+  const productItem = extras.conditions.get(product.id)
+  // A card needs an image: when nothing is shared, show a variant's own photo.
+  const fallback = product.images.length === 0 ? variants?.find((v) => v.images?.length)?.images : undefined
+
+  return {
+    ...product,
+    variants,
+    sharedImages: product.images,
+    images: fallback ?? product.images,
+    ...(extras.loaded && { warrantyPlan: extras.plans.get(product.id) }),
+    ...(extras.loaded && !hasVariants && {
+      condition: productItem?.condition ?? 'brand_new',
+      preOwned: productItem?.preOwned,
+    }),
+  }
 }
 
 /**

@@ -38,6 +38,17 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined)
 
 /**
+ * A cart line's identity: the database product id, the variant, and the chosen
+ * warranty. Never the product name — a Brand New and a Pre-Owned listing of the
+ * same model are different products (different ids), so they are always
+ * separate lines, as are two warranty choices on the same product.
+ */
+export function cartLineId(product: Product, variant?: ProductVariant, warranty?: WarrantyOption): string {
+  const baseId = variant ? `${product.id}-${variant.id}` : product.id
+  return warranty ? `${baseId}~w${warranty.id}` : baseId
+}
+
+/**
  * The cart stores whole Product and ProductVariant objects in localStorage, so
  * every line carries the price that was on screen when it was added. Reading
  * that stored number back is how the cart came to disagree with the product
@@ -78,11 +89,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const addToCart = (product: Product, variant?: ProductVariant, quantity = 1, warranty?: WarrantyOption) => {
     setCart(prev => {
-      // Create a unique ID combining product ID and variant ID (if any). A
-      // different warranty is a different line: "display + 3 months" and
-      // "display + 6 months" are priced differently.
-      const baseId = variant ? `${product.id}-${variant.id}` : product.id
-      const cartItemId = warranty ? `${baseId}~w${warranty.id}` : baseId
+      const cartItemId = cartLineId(product, variant, warranty)
       
       const existingItem = prev.find(item => item.id === cartItemId)
       if (existingItem) {
@@ -131,10 +138,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       const live = products.find((p) => p.id === item.product.id)
       // Until warranty data has loaded (or if it could not), describe the line
       // as chosen. The amount is still re-resolved by place_order().
-      if (!live?.warrantyPlan) {
+      if (!live || !(live.warrantyPlan || live.variants?.some((v) => v.warrantyPlan))) {
         return snapshot ? { ...snapshot, unavailable: false } : null
       }
-      const option = resolveWarrantyOption(live, item.warrantyOptionId)
+      // The line's OWN variant decides which plan the option must belong to.
+      const liveVariant = item.variant ? live.variants?.find((v) => v.id === item.variant!.id) : undefined
+      const option = resolveWarrantyOption(live, liveVariant, item.warrantyOptionId)
       if (!option) {
         return {
           label: snapshot?.label ?? 'Warranty',

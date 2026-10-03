@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { Header } from '@/components/ui/Header'
 import { useCatalogProduct, resolveVariant, selectedPrice, selectedPriceIsVip, resolveWarrantyOption } from '@/lib/catalog'
 import {
-  ConditionChip, PreOwnedDetails, WarrantyPicker, PriceBreakdown, WarrantyTerms,
+  ConditionChip, ConditionLine, PreOwnedDetails, WarrantyPicker, PriceBreakdown, WarrantyTerms,
 } from '@/components/product/ProductConditionWarranty'
 import { useCustomerAuth } from '@/context/CustomerAuthContext'
 import { VipPriceTag } from '@/components/account/VipBadge'
@@ -74,7 +74,18 @@ export function ProductDetailView({ productId }: { productId: string }) {
   const currentPrice = selectedPrice(product, selectedVariant)
   // undefined unless the product sells a warranty choice; then the chosen
   // option, or the admin's default. A withdrawn option falls back to the default.
-  const warrantyOption = resolveWarrantyOption(product, selectedWarrantyId) ?? resolveWarrantyOption(product, undefined)
+  // The plan in force for THIS variant (override, else product). An option
+  // chosen under another variant's plan never carries over — it falls back to
+  // this plan's default.
+  const warrantyOption = resolveWarrantyOption(product, selectedVariant, selectedWarrantyId)
+    ?? resolveWarrantyOption(product, selectedVariant, undefined)
+  // The selected variant's own photos first, then the photos shared by every
+  // variant. Without variant photos: the product's images as before.
+  const sharedImages = product.sharedImages ?? product.images
+  const gallery = selectedVariant?.images?.length
+    ? [...selectedVariant.images, ...sharedImages.filter((src) => !selectedVariant.images!.includes(src))]
+    : product.images
+  const imageIndex = Math.min(activeImageIndex, Math.max(gallery.length - 1, 0))
   const unitTotal = currentPrice + (warrantyOption?.addOn ?? 0)
   const theme = getCategoryTheme(product.category)
 
@@ -104,13 +115,13 @@ export function ProductDetailView({ productId }: { productId: string }) {
                 yet. Rendering <img> with no src leaves a blank well, so the
                 neutral mark is shown instead — the same one ProductCard falls
                 back to when an image fails to load. */}
-            {product.images.length > 0 ? (
+            {gallery.length > 0 ? (
               <motion.img
-                key={activeImageIndex}
+                key={gallery[imageIndex]}
                 initial={{ opacity: 0, scale: 0.97 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-                src={product.images[activeImageIndex]}
+                src={gallery[imageIndex]}
                 alt={product.name}
                 className="w-full h-full object-contain mix-blend-multiply dark:mix-blend-normal drop-shadow-xl"
               />
@@ -122,15 +133,15 @@ export function ProductDetailView({ productId }: { productId: string }) {
             {/* Curved glossy shelf beneath the product */}
             <div className="h-7 w-2/3 -mt-1 rounded-[100%] bg-pedestal blur-[8px]" aria-hidden="true" />
 
-            {product.images.length > 1 && (
+            {gallery.length > 1 && (
               <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2">
-                {product.images.map((_, idx) => (
+                {gallery.map((_, idx) => (
                   <button
                     key={idx}
                     onClick={() => setActiveImageIndex(idx)}
                     aria-label={`View image ${idx + 1}`}
                     className={`h-2 rounded-full transition-all duration-300 ${
-                      idx === activeImageIndex ? 'bg-primary w-5' : 'bg-primary/25 w-2'
+                      idx === imageIndex ? 'bg-primary w-5' : 'bg-primary/25 w-2'
                     }`}
                   />
                 ))}
@@ -141,11 +152,8 @@ export function ProductDetailView({ productId }: { productId: string }) {
 
         {/* Product Info */}
         <div className="px-4 py-6">
-          <div className="mb-1.5 flex flex-wrap items-center gap-2">
-            <div className="inline-flex items-center px-2.5 py-1 rounded-full bg-primary-soft border border-mint-deep text-[11px] font-bold uppercase tracking-wide text-primary">
-              {product.isNew || product.status === 'NEW' ? 'New' : product.subcategory}
-            </div>
-            <ConditionChip product={product} className="py-1 text-[11px]" />
+          <div className="mb-1.5 inline-flex items-center px-2.5 py-1 rounded-full bg-primary-soft border border-mint-deep text-[11px] font-bold uppercase tracking-wide text-primary">
+            {product.isNew || product.status === 'NEW' ? 'New' : product.subcategory}
           </div>
           <h1 className="text-2xl sm:text-[32px] font-bold tracking-tight mb-2 leading-tight">{product.name}</h1>
 
@@ -172,6 +180,8 @@ export function ProductDetailView({ productId }: { productId: string }) {
               )
             )}
           </div>
+
+          <ConditionLine product={product} variant={selectedVariant} />
 
           <div className={warrantyOption ? 'mb-3' : 'mb-6'}>
             {isWholesaleVip && selectedPriceIsVip(product, selectedVariant) && <VipPriceTag className="mb-0.5" />}
@@ -215,7 +225,7 @@ export function ProductDetailView({ productId }: { productId: string }) {
                   return (
                     <button
                       key={variant.id}
-                      onClick={() => setSelectedVariantId(variant.id)}
+                      onClick={() => { setSelectedVariantId(variant.id); setActiveImageIndex(0) }}
                       className={`w-full flex items-center justify-between p-4 rounded-[20px] border transition-all duration-300 active:scale-[0.99] ${
                         isSelected
                           ? 'border-primary/45 bg-well-strong shadow-card'
@@ -229,8 +239,11 @@ export function ProductDetailView({ productId }: { productId: string }) {
                             style={{ backgroundColor: variant.colorCode }}
                           />
                         )}
-                        <span className={`font-semibold text-sm truncate ${isSelected ? 'text-primary' : 'text-foreground'}`}>
-                          {variant.name}
+                        <span className="min-w-0 text-left">
+                          <span className={`block font-semibold text-sm truncate ${isSelected ? 'text-primary' : 'text-foreground'}`}>
+                            {variant.name}
+                          </span>
+                          <ConditionChip product={product} variant={variant} className="mt-1" />
                         </span>
                       </div>
                       <span className="font-bold text-sm shrink-0 ml-3">{formatPrice(variant.price)}</span>
@@ -241,9 +254,9 @@ export function ProductDetailView({ productId }: { productId: string }) {
             </div>
           )}
 
-          <WarrantyPicker product={product} selected={warrantyOption} onSelect={(o) => setSelectedWarrantyId(o.id)} />
+          <WarrantyPicker product={product} variant={selectedVariant} selected={warrantyOption} onSelect={(o) => setSelectedWarrantyId(o.id)} />
 
-          <PreOwnedDetails product={product} />
+          <PreOwnedDetails product={product} variant={selectedVariant} />
 
           {/* Compatibility (if Replacement Part) */}
           {product.compatibility && (
@@ -303,7 +316,7 @@ export function ProductDetailView({ productId }: { productId: string }) {
             </div>
           </div>
 
-          <WarrantyTerms product={product} />
+          <WarrantyTerms product={product} variant={selectedVariant} />
         </div>
       </main>
 

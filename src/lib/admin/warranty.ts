@@ -6,6 +6,8 @@ import { parseRupeeInput, type ParseResult } from './pricing'
  * Admin access to the product condition / warranty tables and product photo
  * uploads (migration 20261002120000).
  *
+ *   product_conditions       – "product_conditions admin all"
+ *   product_warranty_plans   – "product_warranty_plans admin all"
  *   product_warranty_options – "product_warranty_options admin all"
  *   condition_grades         – "condition_grades admin all"
  *   storage `product-images` – "product images admin insert/update/delete"
@@ -17,6 +19,8 @@ import { parseRupeeInput, type ParseResult } from './pricing'
 
 type Tables = Database['public']['Tables']
 export type WarrantyOptionRow = Tables['product_warranty_options']['Row']
+export type WarrantyPlanRow = Tables['product_warranty_plans']['Row']
+export type ConditionRow = Tables['product_conditions']['Row']
 export type ConditionGradeRow = Tables['condition_grades']['Row']
 
 /** Conditions the admin may choose. 'refurbished' exists in the database but is not offered yet. */
@@ -38,7 +42,115 @@ export function parseAddOnInput(raw: string): ParseResult {
 }
 
 // ---------------------------------------------------------------------------
-// Warranty options
+// Conditions — one row per product without variants (variant_id NULL), or per
+// variant. A variant with no row is Brand New; it never inherits the product's.
+// ---------------------------------------------------------------------------
+
+/** The editable fields of a condition row. */
+export interface ConditionFields {
+  condition: string
+  condition_grade_id: string | null
+  battery_health: number | null
+  cycle_count: number | null
+  physical_condition: string | null
+  accessories_included: string | null
+  device_notes: string | null
+}
+
+export const BRAND_NEW_FIELDS: ConditionFields = {
+  condition: 'brand_new', condition_grade_id: null, battery_health: null, cycle_count: null,
+  physical_condition: null, accessories_included: null, device_notes: null,
+}
+
+/** Pre-owned details are cleared for anything that is not pre-owned. */
+export function normaliseCondition(fields: ConditionFields): ConditionFields {
+  return fields.condition === 'pre_owned' ? fields : { ...BRAND_NEW_FIELDS, condition: fields.condition }
+}
+
+export async function listConditions(productId: string): Promise<ConditionRow[]> {
+  const { data, error } = await getSupabaseClient()
+    .from('product_conditions').select('*').eq('product_id', productId)
+  if (error) throw error
+  return data ?? []
+}
+
+/** Inserts or updates the row for (product, variant). */
+export async function saveCondition(
+  productId: string,
+  variantId: string | null,
+  existingRowId: string | null,
+  fields: ConditionFields,
+): Promise<void> {
+  const supabase = getSupabaseClient()
+  const values = normaliseCondition(fields)
+  const { error } = existingRowId
+    ? await supabase.from('product_conditions').update(values).eq('id', existingRowId).select('id').single()
+    : await supabase.from('product_conditions').insert({ product_id: productId, variant_id: variantId, ...values }).select('id').single()
+  if (error) throw error
+}
+
+/** Removes a variant's row — it is then Brand New. */
+export async function deleteCondition(rowId: string): Promise<void> {
+  const { error } = await getSupabaseClient().from('product_conditions').delete().eq('id', rowId)
+  if (error) throw error
+}
+
+/**
+ * Clears the LEGACY product-level condition columns of a product with
+ * variants. Migration 20261003120000 deliberately did not guess which variant
+ * they described; once an administrator has assigned them per variant (or
+ * decided they no longer apply), this removes them.
+ */
+export async function clearLegacyCondition(productId: string): Promise<void> {
+  const { error } = await getSupabaseClient().from('products').update(BRAND_NEW_FIELDS).eq('id', productId)
+  if (error) throw error
+}
+
+// ---------------------------------------------------------------------------
+// Warranty plans — the product default (variant_id NULL) and variant overrides
+// ---------------------------------------------------------------------------
+
+export interface PlanFields {
+  warranty_type: string
+  warranty_duration: string | null
+  warranty_months: number | null
+  warranty_title: string | null
+  warranty_description: string | null
+  warranty_covered: string[]
+  warranty_excluded: string[]
+}
+
+export async function listPlans(productId: string): Promise<WarrantyPlanRow[]> {
+  const { data, error } = await getSupabaseClient()
+    .from('product_warranty_plans').select('*').eq('product_id', productId)
+  if (error) throw error
+  return data ?? []
+}
+
+export async function createPlan(productId: string, variantId: string | null, fields: Partial<PlanFields>): Promise<WarrantyPlanRow> {
+  const { data, error } = await getSupabaseClient()
+    .from('product_warranty_plans')
+    .insert({ product_id: productId, variant_id: variantId, ...fields })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function updatePlan(id: string, fields: PlanFields): Promise<void> {
+  const { error } = await getSupabaseClient()
+    .from('product_warranty_plans').update(fields).eq('id', id).select('id').single()
+  if (error) throw error
+}
+
+/** Removes a variant override (and its options); the variant then uses the product plan. */
+export async function deletePlan(id: string): Promise<void> {
+  const { error } = await getSupabaseClient().from('product_warranty_plans').delete().eq('id', id)
+  if (error) throw error
+}
+
+// ---------------------------------------------------------------------------
+// Warranty options — belong to a plan
 // ---------------------------------------------------------------------------
 
 export async function listWarrantyOptions(productId: string): Promise<WarrantyOptionRow[]> {
@@ -53,17 +165,20 @@ export async function listWarrantyOptions(productId: string): Promise<WarrantyOp
 
 export async function addWarrantyOption(
   productId: string,
+  planId: string,
   input: { months: number; addOnCents: number },
+  /** The plan's existing options. */
   existing: WarrantyOptionRow[],
 ): Promise<WarrantyOptionRow> {
   const { data, error } = await getSupabaseClient()
     .from('product_warranty_options')
     .insert({
       product_id: productId,
+      plan_id: planId,
       duration_months: input.months,
       additional_price_cents: input.addOnCents,
       display_order: existing.length,
-      // The first option a product gets is its default.
+      // The first option a plan gets is its default.
       is_default: existing.length === 0,
     })
     .select()
@@ -87,15 +202,15 @@ export async function deleteWarrantyOption(id: string): Promise<void> {
 }
 
 /**
- * Exactly one default per product (a partial unique index enforces it), so the
+ * Exactly one default per PLAN (a partial unique index enforces it), so the
  * old default is cleared before the new one is set. A default must be enabled
  * (CHECK), so setting it also enables it.
  */
-export async function setDefaultWarrantyOption(productId: string, id: string): Promise<void> {
+export async function setDefaultWarrantyOption(planId: string, id: string): Promise<void> {
   const supabase = getSupabaseClient()
   const { error: clearError } = await supabase
     .from('product_warranty_options').update({ is_default: false })
-    .eq('product_id', productId).eq('is_default', true)
+    .eq('plan_id', planId).eq('is_default', true)
   if (clearError) throw clearError
   const { error } = await supabase
     .from('product_warranty_options').update({ is_default: true, is_enabled: true })

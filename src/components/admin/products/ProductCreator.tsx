@@ -9,6 +9,7 @@ import {
   type CategoryRow, type NewProductInput, type NewVariantInput,
 } from '@/lib/admin/products'
 import { parseRupeeInput } from '@/lib/admin/pricing'
+import { CONDITION_OPTIONS } from '@/lib/admin/warranty'
 import {
   TextField, NumberField, TextAreaField, SelectField, CheckboxField, EditorSection, FieldLabel,
 } from './fields'
@@ -40,6 +41,7 @@ interface VariantDraft extends Omit<NewVariantInput, 'retailRupees' | 'vipRupees
 
 const EMPTY_VARIANT: VariantDraft = {
   name: '', color: null, color_code: null, storage: null, stock: null, retail: '', vip: '',
+  condition: 'brand_new',
 }
 
 const rowInput =
@@ -73,6 +75,10 @@ export function ProductCreator({
   const [stock, setStock] = useState<number | null>(0)
   const [lifecycle, setLifecycle] = useState<string>('NEW')
   const [isNew, setIsNew] = useState(true)
+  // Brand New and Pre-Owned are separate products, each with its own ID,
+  // price, stock, warranty and photos. Pre-owned details are added in the
+  // editor once the product exists.
+  const [condition, setCondition] = useState<'brand_new' | 'pre_owned'>('brand_new')
 
   const [warrantyText, setWarrantyText] = useState('')
   const [warrantyStatus, setWarrantyStatus] = useState('')
@@ -103,9 +109,21 @@ export function ProductCreator({
   }, [])
 
   /** The id follows the name until the admin types their own. */
+  /** The suggested ID; a pre-owned listing gets its own, so it never collides with the new one. */
+  function suggestId(value: string, cond: typeof condition): string {
+    const base = slugify(value)
+    return cond === 'pre_owned' && base ? `${base}-pre-owned` : base
+  }
+
   function handleName(value: string) {
     setName(value)
-    if (!idEdited) setProductId(slugify(value))
+    if (!idEdited) setProductId(suggestId(value, condition))
+    setSave({ kind: 'idle' })
+  }
+
+  function handleCondition(value: typeof condition) {
+    setCondition(value)
+    if (!idEdited) setProductId(suggestId(name, value))
     setSave({ kind: 'idle' })
   }
 
@@ -151,6 +169,7 @@ export function ProductCreator({
         stock: variant.stock,
         retailRupees: variantRetail,
         vipRupees: variantVip,
+        condition: variant.condition,
       })
     }
 
@@ -171,6 +190,7 @@ export function ProductCreator({
         stock: stock ?? 0,
         lifecycle_status: lifecycle || null,
         is_new: isNew,
+        condition,
         warranty_text: warrantyText.trim() || null,
         warranty_status: warrantyStatus || null,
         warranty_duration: warrantyDuration.trim() || null,
@@ -227,6 +247,34 @@ export function ProductCreator({
               <TextField id="n-name" label="Product name" value={name} disabled={busy}
                 placeholder="iPhone 18 Pro" onChange={handleName} />
 
+              {variants.length > 0 ? (
+                <p className="rounded-xl border border-dashed border-mint-deep dark:border-border px-3 py-2.5 text-[12px] leading-relaxed text-muted-foreground">
+                  This product has variants, so each variant gets its own condition (Brand New or Pre-Owned) in the
+                  Variants section. Pre-owned details and photos are added in the editor after creating it.
+                </p>
+              ) : (
+              <fieldset>
+                <legend className="mb-1.5 text-[13px] font-semibold text-foreground">Condition</legend>
+                <div className="flex flex-wrap gap-2" role="radiogroup">
+                  {CONDITION_OPTIONS.map((option) => (
+                    <label key={option.value}
+                      className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3.5 py-2.5 text-[13px] font-semibold transition-colors ${
+                        condition === option.value ? 'border-primary/45 bg-primary-soft text-primary' : 'border-mint-deep dark:border-border bg-card text-foreground'
+                      }`}>
+                      <input type="radio" name="n-condition" value={option.value} disabled={busy}
+                        checked={condition === option.value} onChange={() => handleCondition(option.value)}
+                        className="accent-[var(--primary)]" />
+                      {option.label}
+                    </label>
+                  ))}
+                </div>
+                <span className="mt-1.5 block text-[11px] text-muted-foreground">
+                  Selling a model both new and used? Create one product for each — customers see both.
+                  {condition === 'pre_owned' && ' Add the grade, battery health and actual-unit photos in the editor after creating it.'}
+                </span>
+              </fieldset>
+              )}
+
               <label htmlFor="n-id" className="block">
                 <FieldLabel hint="permanent — it becomes the product's address">Product ID</FieldLabel>
                 <input id="n-id" type="text" value={productId} disabled={busy}
@@ -278,10 +326,19 @@ export function ProductCreator({
                       onClick={() => setVariants((p) => p.filter((_, i) => i !== index))} />
                   </div>
                   <div className="grid gap-3">
-                    <input aria-label={`Variant ${index + 1} label`} value={variant.name} disabled={busy}
-                      placeholder="256GB"
-                      onChange={(e) => setVariants((p) => p.map((v, i) => i === index ? { ...v, name: e.target.value } : v))}
-                      className={rowInput} />
+                    <div className="grid gap-3 sm:grid-cols-[1fr_11rem]">
+                      <input aria-label={`Variant ${index + 1} label`} value={variant.name} disabled={busy}
+                        placeholder="256GB"
+                        onChange={(e) => setVariants((p) => p.map((v, i) => i === index ? { ...v, name: e.target.value } : v))}
+                        className={rowInput} />
+                      {/* This variant's own condition — never shared with the others. */}
+                      <select aria-label={`Variant ${index + 1} condition`} value={variant.condition} disabled={busy}
+                        onChange={(e) => setVariants((p) => p.map((v, i) => i === index
+                          ? { ...v, condition: e.target.value as VariantDraft['condition'] } : v))}
+                        className={rowInput}>
+                        {CONDITION_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                    </div>
                     <div className="grid gap-3 sm:grid-cols-3">
                       <input aria-label={`Variant ${index + 1} storage`} value={variant.storage ?? ''} disabled={busy}
                         placeholder="Storage"

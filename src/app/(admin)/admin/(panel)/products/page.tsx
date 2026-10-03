@@ -92,6 +92,7 @@ export default function AdminProductsPage() {
         row.name.toLowerCase().includes(q) ||
         row.id.toLowerCase().includes(q) ||
         (row.model?.toLowerCase().includes(q) ?? false) ||
+        (row.conditionSummary?.toLowerCase().includes(q) ?? false) ||
         row.subcategory.toLowerCase().includes(q)
       )
     })
@@ -251,6 +252,7 @@ export default function AdminProductsPage() {
                       <button type="button" onClick={() => setEditingId(row.id)}
                         className="focus-ring rounded-lg text-left">
                         <span className="block font-semibold text-foreground leading-tight">{row.name}</span>
+                        <AdminConditionChip row={row} />
                         <span className="block font-mono text-[11px] text-muted-foreground">{row.id}</span>
                       </button>
                     </td>
@@ -361,5 +363,31 @@ export default function AdminProductsPage() {
         </p>
       )}
     </>
+  )
+}
+
+/**
+ * The product's condition in the list — the same summary customers see on the
+ * card ("Brand New", "Pre-Owned · Grade A", "New & Pre-Owned"), plus a flag
+ * when older product-level condition data is still waiting to be assigned to
+ * the right variant.
+ */
+function AdminConditionChip({ row }: { row: AdminProductListItem }) {
+  return (
+    <span className="my-1 flex flex-wrap gap-1">
+      {row.conditionSummary && (
+        <span className={cn(
+          'inline-flex w-fit items-center rounded-full border px-2 py-0.5 text-[10.5px] font-semibold whitespace-nowrap',
+          row.hasPreOwned ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400' : 'border-border bg-muted text-muted-foreground',
+        )}>
+          {row.conditionSummary}
+        </span>
+      )}
+      {row.legacyCondition && (
+        <span className="inline-flex w-fit items-center rounded-full border border-amber-500/40 px-2 py-0.5 text-[10.5px] font-semibold text-amber-700 dark:text-amber-400 whitespace-nowrap">
+          Condition needs review
+        </span>
+      )}
+    </span>
   )
 }

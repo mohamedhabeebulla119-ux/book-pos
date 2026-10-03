@@ -3,6 +3,7 @@ import { setPrice } from './pricing'
 import type { Database } from '@/lib/supabase/database.types'
 import type { ProductSubcategory } from '@/types'
 import type { AdminRole } from './roles'
+import { conditionLabel, MIXED_CONDITION_LABEL } from '@/lib/catalog'
 
 /**
  * Admin product data access.
@@ -70,6 +71,16 @@ export interface AdminProductListItem {
   category_id: string
   categorySlug: string
   categoryName: string
+  /**
+   * What customers see on the card, by the same rules as the storefront: the
+   * product's own condition, the shared variant condition, or "New & Pre-Owned".
+   * Null when the stored value is one the UI does not offer (refurbished).
+   */
+  conditionSummary: string | null
+  /** True when any purchasable item is pre-owned (badge styling). */
+  hasPreOwned: boolean
+  /** Older product-level condition data on a product with variants, awaiting assignment. */
+  legacyCondition: boolean
 }
 
 export interface AdminProductDetail {
@@ -88,27 +99,18 @@ export interface ProductPatch {
   model: string | null
   description: string
   warranty_text: string | null
-  warranty_status: string | null
-  warranty_duration: string | null
-  warranty_months: number | null
   warranty_coverage: string | null
   lifecycle_status: string | null
   is_new: boolean
-  /** brand_new | pre_owned (refurbished is not offered in the UI yet). */
-  condition: string
-  condition_grade_id: string | null
-  battery_health: number | null
-  cycle_count: number | null
-  physical_condition: string | null
-  accessories_included: string | null
-  device_notes: string | null
-  /** none | included | optional_paid */
-  warranty_type: string
-  warranty_title: string | null
-  warranty_description: string | null
-  warranty_covered: string[]
-  warranty_excluded: string[]
 }
+
+/*
+ * Condition (product_conditions) and warranty type/duration/terms
+ * (product_warranty_plans) are NOT product columns any more: they are edited
+ * per product or per variant through lib/admin/warranty.ts. The old
+ * products.condition* / warranty_* columns are only mirrored into by database
+ * triggers, for app builds already installed, and are never written here.
+ */
 
 /** Variant fields an admin may edit. legacy_key is NOT among them. */
 export interface VariantPatch {
@@ -148,17 +150,38 @@ export async function listCategories(): Promise<CategoryRow[]> {
 export async function listProducts(categories: CategoryRow[]): Promise<AdminProductListItem[]> {
   const { data, error } = await getSupabaseClient()
     .from('products')
-    .select('id, name, subcategory, model, stock, is_active, lifecycle_status, category_id')
+    .select('id, name, subcategory, model, stock, is_active, lifecycle_status, category_id, condition, battery_health, device_notes, product_variants(id), product_conditions(variant_id, condition, condition_grades(label))')
     .order('sort_order', { ascending: true })
 
   if (error) throw error
 
   const bySlug = new Map(categories.map((c) => [c.id, c]))
 
-  return (data ?? []).map((row) => {
+  return (data ?? []).map(({ product_variants: variantRows, product_conditions: conditionRows, condition: legacy, battery_health, device_notes, ...row }) => {
     const category = bySlug.get(row.category_id)
+    const variantIds = (variantRows ?? []).map((v) => v.id)
+    const rowFor = (variantId: string | null) => (conditionRows ?? []).find((c) => c.variant_id === variantId)
+    // Each item's label: a variant's own row (none = Brand New), or the
+    // product's row when it has no variants.
+    const items = variantIds.length > 0
+      ? variantIds.map((id) => rowFor(id))
+      : [rowFor(null)]
+    const labelled = items.map((c) => ({
+      condition: c?.condition ?? 'brand_new',
+      label: conditionLabel(c?.condition ?? 'brand_new', c?.condition_grades?.label ?? null),
+    }))
+    const kinds = new Set(labelled.map((l) => l.condition))
+    const labels = new Set(labelled.map((l) => l.label))
+    const conditionSummary =
+      kinds.has('brand_new') && kinds.has('pre_owned') ? MIXED_CONDITION_LABEL
+      : labels.size === 1 ? [...labels][0]
+      : kinds.has('pre_owned') ? 'Pre-Owned'
+      : null
     return {
       ...row,
+      conditionSummary,
+      hasPreOwned: kinds.has('pre_owned'),
+      legacyCondition: variantIds.length > 0 && (legacy !== 'brand_new' || battery_health !== null || device_notes !== null),
       categorySlug: category?.slug ?? '',
       categoryName: category?.name ?? 'Uncategorised',
     }
@@ -301,7 +324,8 @@ export async function saveSpecs(
  */
 export async function updateImage(
   imageId: string,
-  patch: { path: string; alt: string | null; position: number },
+  /** variant_id: null = shown for every variant; set = that variant only. */
+  patch: { path: string; alt: string | null; position: number; variant_id: string | null },
 ): Promise<ImageRow> {
   const { data, error } = await getSupabaseClient()
     .from('product_images')
@@ -464,6 +488,8 @@ export interface NewVariantInput {
   /** Whole rupees, or null to leave the tier unpriced. */
   retailRupees: number | null
   vipRupees: number | null
+  /** This variant's own condition. Pre-owned details are added in the editor. */
+  condition: 'brand_new' | 'pre_owned'
 }
 
 export interface NewProductInput {
@@ -476,6 +502,11 @@ export interface NewProductInput {
   stock: number
   lifecycle_status: string | null
   is_new: boolean
+  /**
+   * brand_new | pre_owned for a product WITHOUT variants. A product with
+   * variants takes each variant's own condition instead.
+   */
+  condition: 'brand_new' | 'pre_owned'
   warranty_text: string | null
   warranty_status: string | null
   warranty_duration: string | null
@@ -522,9 +553,6 @@ export async function createProduct(input: NewProductInput): Promise<CreateProdu
     warranty_duration: input.warranty_duration,
     warranty_months: input.warranty_months,
     warranty_coverage: input.warranty_coverage,
-    // Same rule migration 20261002120000 applied to existing products; the
-    // full warranty (type, options, terms) is then managed in the editor.
-    warranty_type: input.warranty_status === 'active' ? 'included' : 'none',
     // Never active on insert — see the note above.
     is_active: false,
   })
@@ -595,6 +623,34 @@ export async function createProduct(input: NewProductInput): Promise<CreateProdu
     const variantIdByKey = new Map(
       (savedVariants ?? []).map((row) => [row.legacy_key ?? '', row.id]),
     )
+
+    // The product's default warranty plan — the same rule migration
+    // 20261002120000 applied to existing products ('active' = included). Type,
+    // options and terms are then managed in the editor.
+    const { error: planError } = await supabase.from('product_warranty_plans').insert({
+      product_id: input.id,
+      variant_id: null,
+      warranty_type: input.warranty_status === 'active' ? 'included' : 'none',
+      warranty_duration: input.warranty_duration,
+      warranty_months: input.warranty_months,
+    })
+    if (planError) throw planError
+
+    // Condition: the product's own row when it has no variants; otherwise a row
+    // only for each Pre-Owned variant (no row = Brand New). Never one value
+    // spread across every variant.
+    const conditionRows: { product_id: string; variant_id: string | null; condition: string }[] = input.variants.length === 0
+      ? [{ product_id: input.id, variant_id: null, condition: input.condition }]
+      : input.variants.flatMap((variant, index) => {
+          const variantId = variantIdByKey.get(legacyKeyFor(index))
+          return variant.condition === 'pre_owned' && variantId
+            ? [{ product_id: input.id, variant_id: variantId, condition: 'pre_owned' }]
+            : []
+        })
+    if (conditionRows.length > 0) {
+      const { error: conditionError } = await supabase.from('product_conditions').insert(conditionRows)
+      if (conditionError) throw conditionError
+    }
 
     let retailPriced = false
 
@@ -693,7 +749,7 @@ export async function deleteVariant(variantId: string): Promise<void> {
 
 export async function addImage(
   productId: string,
-  input: { path: string; alt: string | null; storage_bucket?: string | null },
+  input: { path: string; alt: string | null; storage_bucket?: string | null; variant_id?: string | null },
   existing: ImageRow[],
 ): Promise<ImageRow> {
   const { data, error } = await getSupabaseClient()
@@ -704,6 +760,7 @@ export async function addImage(
       alt: input.alt,
       // NULL = a bundled /images/... path; 'product-images' = an uploaded file.
       storage_bucket: input.storage_bucket ?? null,
+      variant_id: input.variant_id ?? null,
       position: existing.length,
       // The first image a product gets is its card image.
       is_primary: existing.length === 0,

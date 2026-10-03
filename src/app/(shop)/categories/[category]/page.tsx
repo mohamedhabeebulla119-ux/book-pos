@@ -135,7 +135,7 @@ export default function CategoryProductsPage({ params }: { params: Promise<{ cat
         {/* Sort row */}
         <div className="flex items-center justify-between mb-4">
           <span className="text-sm font-medium text-muted-foreground">
-            {sortedProducts.length} {sortedProducts.length === 1 ? 'model' : 'models'}
+            {sortedProducts.length} {sortedProducts.length === 1 ? 'product' : 'products'}
           </span>
           <div className="relative">
             <button

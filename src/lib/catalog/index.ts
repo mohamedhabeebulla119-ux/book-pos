@@ -5,7 +5,10 @@ export { hasVariantPricing, defaultVariant, resolveVariant, displayPrice, select
 export type { CatalogSnapshot, CatalogStatus, CatalogSource, ResolvedTier } from './types'
 export { productHref, isPrerenderedProduct } from './routes'
 export {
-  CONDITION_LABEL, warrantyNoun, durationLabel, warrantyLabel,
-  hasWarrantyChoice, defaultWarrantyOption, resolveWarrantyOption,
+  CONDITION_LABEL, MIXED_CONDITION_LABEL, conditionLabel, itemCondition, itemConditionLabel,
+  productConditionSummary, hasPreOwned, conditionSearchText,
+  warrantyNoun, durationLabel, warrantyLabel, effectiveWarrantyPlan,
+  hasWarrantyChoice, anyWarrantyChoice, defaultWarrantyOption, resolveWarrantyOption,
+  type ItemCondition,
 } from './warranty'
 export { productImageUrl, snapshotImageUrl } from './liveCatalog'

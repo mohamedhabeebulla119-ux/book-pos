@@ -48,7 +48,8 @@ export function PartDetailView({ model, partKind }: PartDetailViewProps) {
   }
 
   const product = livePart ?? bundledPart!
-  const warrantyOption = resolveWarrantyOption(product, selectedWarrantyId) ?? resolveWarrantyOption(product, undefined)
+  const warrantyOption = resolveWarrantyOption(product, undefined, selectedWarrantyId)
+    ?? resolveWarrantyOption(product, undefined, undefined)
   const unitTotal = product.price + (warrantyOption?.addOn ?? 0)
 
   return (

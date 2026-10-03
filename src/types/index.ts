@@ -46,6 +46,18 @@ export interface ProductVariant {
   colorCode?: string
   storage?: string
   /**
+   * This variant's own condition (product_conditions row for the variant).
+   * 'brand_new' when it has no row; undefined until live data loads. A variant
+   * never takes its condition from the product.
+   */
+  condition?: ProductCondition
+  /** Pre-owned details of THIS variant, only when condition is 'pre_owned'. */
+  preOwned?: PreOwnedDetails
+  /** This variant's warranty OVERRIDE, if it has one; otherwise the product's plan applies. */
+  warrantyPlan?: ProductWarranty
+  /** Photos assigned to this variant only (e.g. actual-unit photos). */
+  images?: string[]
+  /**
    * True only when `price` came from the caller's own wholesale_vip row in
    * my_effective_prices (which RLS withholds from every other caller). Set by
    * the live catalog mapper; a display label only, never a price input.
@@ -96,10 +108,20 @@ export interface Product {
    * the live catalog mapper; a display label only, never a price input.
    */
   isVipPrice?: boolean
-  /** products.condition. Absent on bundled data, which is all brand new. */
+  /**
+   * Condition of a product WITHOUT variants (its product-level row). Unset for
+   * a product with variants — each variant carries its own. Absent on bundled
+   * data until live data loads.
+   */
   condition?: ProductCondition
-  /** Pre-owned details, only for condition 'pre_owned'. */
+  /** Pre-owned details of a product without variants. */
   preOwned?: PreOwnedDetails
+  /**
+   * Images shared by every variant (product_images.variant_id NULL), when live
+   * data is loaded. `images` may fall back to a variant's photos so a card is
+   * never blank; galleries use this list plus the selected variant's own.
+   */
+  sharedImages?: string[]
   /**
    * products.warranty_type + terms + product_warranty_options. Absent until
    * live data loads. (`warranty` above is the older free-text line.)
@@ -148,6 +170,9 @@ export interface WarrantyOption {
 
 export interface ProductWarranty {
   type: WarrantyType
+  /** For 'included': the fixed cover, e.g. "1 Year" / 12. */
+  duration?: string
+  months?: number
   title?: string
   description?: string
   covered: string[]

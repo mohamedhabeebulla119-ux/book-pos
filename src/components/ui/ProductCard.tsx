@@ -9,7 +9,7 @@ import { Button } from './Button'
 import { Badge, statusTone } from './Badge'
 import { useCart } from '@/context/CartContext'
 import { useWishlist } from '@/context/WishlistContext'
-import { displayPrice, displayPriceIsVip, hasVariantPricing, hasWarrantyChoice, productHref } from '@/lib/catalog'
+import { displayPrice, displayPriceIsVip, hasVariantPricing, anyWarrantyChoice, productHref } from '@/lib/catalog'
 import { ConditionChip } from '@/components/product/ProductConditionWarranty'
 import { useCustomerAuth } from '@/context/CustomerAuthContext'
 import { VipPriceTag } from '@/components/account/VipBadge'
@@ -63,7 +63,7 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
 
   // A product that sells a warranty choice is never quick-added: the customer
   // picks the cover (and sees its price) on the product page.
-  const needsChoice = hasVariants || hasWarrantyChoice(product)
+  const needsChoice = hasVariants || anyWarrantyChoice(product)
   const ctaLabel = isPartSelector ? 'Select Model' : needsChoice ? 'View Options' : justAdded ? 'Added' : 'Add to Cart'
   const tagline = product.description?.split('.')[0]
   const specChips = getProductSpecChips(product)
@@ -163,6 +163,7 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
               For {product.compatibility[0]}
             </span>
           )}
+          {/* No variant chosen yet: the shared condition, or "New & Pre-Owned". */}
           <ConditionChip product={product} className="mb-1.5 w-fit" />
           <h3 className={`font-semibold text-foreground leading-tight mb-1 line-clamp-2 ${featured ? 'text-[15px]' : 'text-sm'}`}>
             {product.name}

@@ -16,13 +16,17 @@ import {
 import {
   listWarrantyOptions, addWarrantyOption, updateWarrantyOption, deleteWarrantyOption,
   setDefaultWarrantyOption, reorderWarrantyOptions, listConditionGrades,
-  uploadProductImage, PRODUCT_IMAGE_BUCKET,
-  type WarrantyOptionRow, type ConditionGradeRow,
+  uploadProductImage, PRODUCT_IMAGE_BUCKET, BRAND_NEW_FIELDS,
+  listConditions, saveCondition, deleteCondition, clearLegacyCondition,
+  listPlans, createPlan, updatePlan, deletePlan,
+  type WarrantyOptionRow, type ConditionGradeRow, type ConditionRow, type WarrantyPlanRow,
 } from '@/lib/admin/warranty'
-import { productImageUrl } from '@/lib/catalog'
+import { productImageUrl, warrantyNoun } from '@/lib/catalog'
 import { describeAdminError } from '@/lib/admin/errors'
 import {
-  ConditionEditor, WarrantyEditor, toDraft, draftToPatch, type WarrantyOptionDraft,
+  ConditionEditor, GradesManager, PlanEditor, toDraft, draftToPatch,
+  conditionDraftFrom, conditionChanged, planDraftFrom, planChanged,
+  type WarrantyOptionDraft, type ConditionDraft, type PlanDraft,
 } from './ConditionWarrantyEditor'
 import {
   TextField, NumberField, TextAreaField, SelectField, LockedField,
@@ -53,7 +57,13 @@ type Confirm =
   | { kind: 'image'; id: string; label: string }
   | { kind: 'compatibility'; id: string; label: string }
   | { kind: 'warranty'; id: string; label: string }
+  | { kind: 'plan'; id: string; label: string }
+  /** Pre-Owned -> Brand New on one item: clears THAT item's pre-owned details. */
+  | { kind: 'brand-new'; key: string; label: string }
   | { kind: 'product'; orderLines: number }
+
+/** Condition drafts are keyed by variant id, or this key for a product without variants. */
+const PRODUCT_KEY = 'product'
 
 /** The editable fields of a product row, as the form holds them. */
 function formFrom(p: ProductRow): ProductPatch {
@@ -64,25 +74,21 @@ function formFrom(p: ProductRow): ProductPatch {
     model: p.model,
     description: p.description,
     warranty_text: p.warranty_text,
-    warranty_status: p.warranty_status,
-    warranty_duration: p.warranty_duration,
-    warranty_months: p.warranty_months,
     warranty_coverage: p.warranty_coverage,
     lifecycle_status: p.lifecycle_status,
     is_new: p.is_new,
-    condition: p.condition,
-    condition_grade_id: p.condition_grade_id,
-    battery_health: p.battery_health,
-    cycle_count: p.cycle_count,
-    physical_condition: p.physical_condition,
-    accessories_included: p.accessories_included,
-    device_notes: p.device_notes,
-    warranty_type: p.warranty_type,
-    warranty_title: p.warranty_title,
-    warranty_description: p.warranty_description,
-    warranty_covered: p.warranty_covered,
-    warranty_excluded: p.warranty_excluded,
   }
+}
+
+/**
+ * Product-level pre-owned values left on a product WITH variants from before
+ * conditions were per variant. Migration 20261003120000 did not guess which
+ * variant they describe, so they are shown to the admin to assign or clear.
+ */
+function legacyCondition(p: ProductRow) {
+  const has = p.condition !== 'brand_new' || p.condition_grade_id !== null || p.battery_health !== null
+    || p.cycle_count !== null || p.physical_condition !== null || p.accessories_included !== null || p.device_notes !== null
+  return has ? p : null
 }
 
 export function ProductEditor({ productId, categories, canEdit, onClose, onSaved, onDeleted }: Props) {
@@ -93,12 +99,21 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
   const [form, setForm] = useState<ProductPatch | null>(null)
   const [variants, setVariants] = useState<(VariantPatch & { id: string; legacyKey: string | null })[]>([])
   const [specs, setSpecs] = useState<SpecDraft[]>([])
-  const [images, setImages] = useState<{ id: string; path: string; alt: string; position: number }[]>([])
+  const [images, setImages] = useState<{ id: string; path: string; alt: string; position: number; variant_id: string | null }[]>([])
   const [grades, setGrades] = useState<ConditionGradeRow[]>([])
   const [gradesError, setGradesError] = useState<string | null>(null)
+  const [managingGrades, setManagingGrades] = useState(false)
+  // Conditions and warranty plans per product / variant. Drafts hold only what
+  // the admin has edited; everything else reads straight from the rows.
+  const [conditionRows, setConditionRows] = useState<ConditionRow[]>([])
+  const [conditionDrafts, setConditionDrafts] = useState<Record<string, ConditionDraft>>({})
+  const [planRows, setPlanRows] = useState<WarrantyPlanRow[]>([])
+  const [planDrafts, setPlanDrafts] = useState<Record<string, PlanDraft>>({})
   const [optionRows, setOptionRows] = useState<WarrantyOptionRow[]>([])
   const [optionDrafts, setOptionDrafts] = useState<WarrantyOptionDraft[]>([])
-  const [optionsError, setOptionsError] = useState<string | null>(null)
+  const [extrasError, setExtrasError] = useState<string | null>(null)
+  /** '' = upload as shared photos; otherwise the variant the upload belongs to. */
+  const [uploadTarget, setUploadTarget] = useState('')
   const fileInput = useRef<HTMLInputElement>(null)
 
   // Rows added or removed here are written immediately rather than batched with
@@ -123,9 +138,15 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
     listConditionGrades()
       .then((rows) => { if (!cancelled) setGrades(rows) })
       .catch((err) => { if (!cancelled) setGradesError(describeAdminError(err, 'Could not load condition grades.')) })
-    listWarrantyOptions(productId)
-      .then((rows) => { if (!cancelled) { setOptionRows(rows); setOptionDrafts(rows.map(toDraft)) } })
-      .catch((err) => { if (!cancelled) setOptionsError(describeAdminError(err, 'Could not load warranty options.')) })
+    Promise.all([listConditions(productId), listPlans(productId), listWarrantyOptions(productId)])
+      .then(([conds, plans, options]) => {
+        if (cancelled) return
+        setConditionRows(conds)
+        setPlanRows(plans)
+        setOptionRows(options)
+        setOptionDrafts(options.map(toDraft))
+      })
+      .catch((err) => { if (!cancelled) setExtrasError(describeAdminError(err, 'Could not load condition and warranty settings.')) })
 
     loadProductDetail(productId)
       .then((d) => {
@@ -137,7 +158,7 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
           color_code: v.color_code, storage: v.storage, stock: v.stock, sort_order: v.sort_order,
         })))
         setSpecs(d.specs.map((s) => ({ id: s.id, label: s.label, value: s.value })))
-        setImages(d.images.map((i) => ({ id: i.id, path: i.path, alt: i.alt ?? '', position: i.position })))
+        setImages(d.images.map((i) => ({ id: i.id, path: i.path, alt: i.alt ?? '', position: i.position, variant_id: i.variant_id })))
       })
       .catch((err) => { if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Could not load this product.') })
 
@@ -158,26 +179,54 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
       color_code: v.color_code, storage: v.storage, stock: v.stock, sort_order: v.sort_order,
     })))
     setSpecs(fresh.specs.map((sp) => ({ id: sp.id, label: sp.label, value: sp.value })))
-    setImages(fresh.images.map((i) => ({ id: i.id, path: i.path, alt: i.alt ?? '', position: i.position })))
-    await reloadOptions()
+    setImages(fresh.images.map((i) => ({ id: i.id, path: i.path, alt: i.alt ?? '', position: i.position, variant_id: i.variant_id })))
+    await reloadExtras()
   }
 
-  /** Re-reads warranty options, keeping unsaved edits to options that still exist. */
-  async function reloadOptions() {
-    const rows = await listWarrantyOptions(productId)
-    setOptionRows(rows)
-    setOptionDrafts((prev) => rows.map((row) => prev.find((d) => d.id === row.id) ?? toDraft(row)))
-    setOptionsError(null)
+  /**
+   * Re-reads conditions, plans and options. Unsaved edits are kept for items
+   * that still exist, so an immediate action (adding an option, say) never
+   * throws away a condition the admin is part-way through editing.
+   */
+  async function reloadExtras(discardDrafts = false) {
+    const [conds, plans, options] = await Promise.all([
+      listConditions(productId), listPlans(productId), listWarrantyOptions(productId),
+    ])
+    setConditionRows(conds)
+    setPlanRows(plans)
+    setOptionRows(options)
+    if (discardDrafts) {
+      setConditionDrafts({})
+      setPlanDrafts({})
+      setOptionDrafts(options.map(toDraft))
+    } else {
+      setPlanDrafts((prev) => Object.fromEntries(Object.entries(prev).filter(([id]) => plans.some((p) => p.id === id))))
+      setOptionDrafts((prev) => options.map((row) => prev.find((d) => d.id === row.id) ?? toDraft(row)))
+    }
+    setExtrasError(null)
   }
 
-  async function reloadGrades() {
-    setGrades(await listConditionGrades())
-    setGradesError(null)
+  function conditionRowFor(key: string): ConditionRow | undefined {
+    return conditionRows.find((r) => (key === PRODUCT_KEY ? r.variant_id === null : r.variant_id === key))
   }
 
-  /** Swaps an option with its neighbour and rewrites the order. */
-  function moveOption(id: string, direction: -1 | 1) {
-    const ids = optionDrafts.map((d) => d.id)
+  /** The item's condition as currently edited (no row = Brand New). */
+  function conditionDraftFor(key: string): ConditionDraft {
+    return conditionDrafts[key] ?? conditionDraftFrom(conditionRowFor(key))
+  }
+
+  function setConditionDraft(key: string, draft: ConditionDraft) {
+    setConditionDrafts((prev) => ({ ...prev, [key]: draft }))
+    setSave({ kind: 'idle' })
+  }
+
+  function planDraftFor(row: WarrantyPlanRow): PlanDraft {
+    return planDrafts[row.id] ?? planDraftFrom(row)
+  }
+
+  /** Swaps an option with its neighbour within its plan and rewrites the order. */
+  function moveOption(planId: string, id: string, direction: -1 | 1) {
+    const ids = optionDrafts.filter((d) => optionRows.find((r) => r.id === d.id)?.plan_id === planId).map((d) => d.id)
     const from = ids.indexOf(id)
     const to = from + direction
     if (from < 0 || to < 0 || to >= ids.length) return
@@ -193,7 +242,9 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
       let existing = detail.images
       for (const file of list) {
         const path = await uploadProductImage(productId, file)
-        const row = await addImage(productId, { path, alt: null, storage_bucket: PRODUCT_IMAGE_BUCKET }, existing)
+        const row = await addImage(productId, {
+          path, alt: null, storage_bucket: PRODUCT_IMAGE_BUCKET, variant_id: uploadTarget || null,
+        }, existing)
         existing = [...existing, row]
       }
     })
@@ -250,14 +301,42 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
       }
     }
 
+    // Condition edits: one per item — each variant on its own, or the product
+    // itself when it has no variants. Never one value across every variant.
+    const conditionKeys = detail.variants.length > 0 ? detail.variants.map((v) => v.id) : [PRODUCT_KEY]
+    for (const key of conditionKeys) {
+      const d = conditionDraftFor(key)
+      if (d.battery_health !== null && (d.battery_health < 0 || d.battery_health > 100)) {
+        setSave({ kind: 'error', message: 'Battery health must be between 0 and 100%.' }); return
+      }
+      if (d.cycle_count !== null && d.cycle_count < 0) {
+        setSave({ kind: 'error', message: 'Cycle count cannot be negative.' }); return
+      }
+    }
+
     setSave({ kind: 'saving' })
     try {
-      // warranty_status is the older display flag; it follows warranty_type so
-      // the two can never contradict each other.
-      await updateProduct(detail.product.id, {
-        ...form,
-        warranty_status: form.warranty_type === 'none' ? 'none' : 'active',
-      })
+      await updateProduct(detail.product.id, form)
+
+      for (const key of conditionKeys) {
+        const row = conditionRowFor(key)
+        const draft = conditionDraftFor(key)
+        if (!conditionChanged(draft, row)) continue
+        const variantId = key === PRODUCT_KEY ? null : key
+        // A variant with no row is Brand New: switching one back removes its row.
+        if (variantId && draft.condition === 'brand_new') {
+          if (row) await deleteCondition(row.id)
+          continue
+        }
+        await saveCondition(detail.product.id, variantId, row?.id ?? null, draft)
+      }
+
+      for (const row of planRows) {
+        const draft = planDrafts[row.id]
+        if (!draft || !planChanged(draft, row)) continue
+        const { id, ...fields } = draft
+        await updatePlan(id, fields)
+      }
 
       for (const { id, patch } of optionPatches) await updateWarrantyOption(id, patch)
 
@@ -281,19 +360,17 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
       for (const image of images) {
         const before = detail.images.find((i) => i.id === image.id)
         if (!before) continue
-        if (before.path === image.path && (before.alt ?? '') === image.alt && before.position === image.position) continue
-        await updateImage(image.id, { path: image.path, alt: image.alt || null, position: image.position })
+        if (before.path === image.path && (before.alt ?? '') === image.alt && before.position === image.position
+            && before.variant_id === image.variant_id) continue
+        await updateImage(image.id, { path: image.path, alt: image.alt || null, position: image.position, variant_id: image.variant_id })
       }
 
       const fresh = await loadProductDetail(detail.product.id)
       setDetail(fresh)
       setForm(formFrom(fresh.product))
       setSpecs(fresh.specs.map((s) => ({ id: s.id, label: s.label, value: s.value })))
-      if (optionPatches.length > 0) {
-        const rows = await listWarrantyOptions(productId)
-        setOptionRows(rows)
-        setOptionDrafts(rows.map(toDraft))
-      }
+      setImages(fresh.images.map((i) => ({ id: i.id, path: i.path, alt: i.alt ?? '', position: i.position, variant_id: i.variant_id })))
+      await reloadExtras(true)
       setSave({ kind: 'saved' })
       onSaved()
     } catch (err) {
@@ -302,6 +379,40 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
   }
 
   const disabled = !canEdit || save.kind === 'saving'
+  const hasVariants = (detail?.variants.length ?? 0) > 0
+  const legacy = detail && hasVariants ? legacyCondition(detail.product) : null
+  const productPlan = planRows.find((r) => r.variant_id === null)
+  const noun = warrantyNoun({ subcategory: form?.subcategory ?? '' })
+
+  /** One plan's editor: the product default or a variant override. */
+  function renderPlan(row: WarrantyPlanRow, idPrefix: string) {
+    const ids = new Set(optionRows.filter((o) => o.plan_id === row.id).map((o) => o.id))
+    return (
+      <PlanEditor
+        key={row.id}
+        idPrefix={idPrefix}
+        noun={noun}
+        plan={planDraftFor(row)}
+        onChange={(next) => { setPlanDrafts((prev) => ({ ...prev, [row.id]: next })); setSave({ kind: 'idle' }) }}
+        rows={optionRows.filter((o) => o.plan_id === row.id)}
+        drafts={optionDrafts.filter((d) => ids.has(d.id))}
+        setDrafts={setOptionDrafts}
+        disabled={disabled}
+        rowBusy={rowBusy}
+        onAdd={async (months, addOnCents) => {
+          let ok = false
+          await runRowAction(async () => {
+            await addWarrantyOption(productId, row.id, { months, addOnCents }, optionRows.filter((o) => o.plan_id === row.id))
+            ok = true
+          })
+          return ok
+        }}
+        onSetDefault={(id) => void runRowAction(() => setDefaultWarrantyOption(row.id, id))}
+        onMove={(id, direction) => moveOption(row.id, id, direction)}
+        onAskDelete={(id, label) => setConfirm({ kind: 'warranty', id, label })}
+      />
+    )
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -383,24 +494,74 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
                 </div>
               </EditorSection>
 
-              <ConditionEditor form={form} patchForm={patchForm} grades={grades} gradesError={gradesError}
-                disabled={disabled} canEdit={canEdit}
-                onGradesChanged={reloadGrades} />
+              <EditorSection title="Condition"
+                description={hasVariants
+                  ? 'Each variant has its own condition — set it in the variant cards below. Changing one variant never changes another, and a variant with no condition set is Brand New.'
+                  : 'Brand New or Pre-Owned. To sell a model both new and used, give it variants (each with its own condition) or create a separate product.'}>
+                <div className="grid gap-4">
+                  {extrasError && <p className="text-[12.5px] text-red-500">{extrasError}</p>}
 
-              <WarrantyEditor form={form} patchForm={patchForm} subcategory={form.subcategory}
-                rows={optionRows} drafts={optionDrafts} setDrafts={setOptionDrafts} optionsError={optionsError}
-                disabled={disabled} rowBusy={rowBusy}
-                onAdd={async (months, addOnCents) => {
-                  let ok = false
-                  await runRowAction(async () => {
-                    await addWarrantyOption(productId, { months, addOnCents }, optionRows)
-                    ok = true
-                  })
-                  return ok
-                }}
-                onSetDefault={(id) => void runRowAction(() => setDefaultWarrantyOption(productId, id))}
-                onMove={moveOption}
-                onAskDelete={(id, label) => setConfirm({ kind: 'warranty', id, label })} />
+                  {!hasVariants && (
+                    <ConditionEditor idPrefix="p" draft={conditionDraftFor(PRODUCT_KEY)} grades={grades} disabled={disabled}
+                      onChange={(d) => setConditionDraft(PRODUCT_KEY, d)}
+                      onRequestBrandNew={() => setConfirm({ kind: 'brand-new', key: PRODUCT_KEY, label: 'this product' })} />
+                  )}
+
+                  {legacy && (
+                    <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-[12.5px] leading-relaxed text-foreground">
+                      <p className="mb-1 font-semibold">Older product-level condition — not shown to customers</p>
+                      <p className="text-muted-foreground">
+                        Before conditions were set per variant, this whole product was recorded as{' '}
+                        <strong>{legacy.condition === 'pre_owned' ? 'Pre-Owned' : legacy.condition}</strong>
+                        {[
+                          legacy.condition_grade_id && `grade: ${grades.find((g) => g.id === legacy.condition_grade_id)?.label ?? 'set'}`,
+                          legacy.battery_health !== null && `battery ${legacy.battery_health}%`,
+                          legacy.cycle_count !== null && `${legacy.cycle_count} cycles`,
+                          legacy.physical_condition, legacy.accessories_included, legacy.device_notes,
+                        ].filter(Boolean).map((part) => ` · ${part}`)}.
+                        It was not copied to any variant because it does not say which variant it describes.
+                        Use “Apply older details” on the right variant, then clear it here.
+                      </p>
+                      {canEdit && (
+                        <Button type="button" variant="outline" size="sm" className="mt-2.5" disabled={rowBusy}
+                          onClick={() => void runRowAction(() => clearLegacyCondition(productId))}>
+                          Clear older details
+                        </Button>
+                      )}
+                    </div>
+                  )}
+
+                  {gradesError && <p className="text-[12px] text-red-500">{gradesError}</p>}
+                  {canEdit && (
+                    <div>
+                      <button type="button" onClick={() => setManagingGrades((m) => !m)}
+                        className="focus-ring inline-flex items-center gap-1.5 rounded-full text-[12.5px] font-semibold text-primary">
+                        {managingGrades ? 'Close grade list' : 'Manage condition grades'}
+                      </button>
+                      {managingGrades && (
+                        <GradesManager grades={grades} onChanged={async () => { setGrades(await listConditionGrades()); setGradesError(null) }} />
+                      )}
+                    </div>
+                  )}
+                </div>
+              </EditorSection>
+
+              <EditorSection title="Warranty"
+                description={`The product's default warranty. ${hasVariants ? 'A variant can override it in its own card. ' : ''}Customers see it as “${noun}”.`}>
+                {productPlan
+                  ? renderPlan(productPlan, 'pw')
+                  : (
+                    <div className="grid gap-2">
+                      <p className="text-[12.5px] text-muted-foreground">This product has no warranty set up yet (customers see no warranty).</p>
+                      {canEdit && (
+                        <Button type="button" variant="outline" size="sm" className="w-fit" disabled={rowBusy}
+                          onClick={() => void runRowAction(async () => { await createPlan(productId, null, {}) })}>
+                          <Plus size={14} className="mr-1.5" /> Set up warranty
+                        </Button>
+                      )}
+                    </div>
+                  )}
+              </EditorSection>
 
               <EditorSection title="Variants"
                   description="Variant keys are fixed once created: they map database rows back to saved carts and wishlists. Prices for each variant live on the Pricing screen.">
@@ -436,6 +597,61 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
                             <NumberField id={`v-sort-${variant.id}`} label="Order" min={0} value={variant.sort_order} disabled={disabled}
                               onChange={(v) => setVariants((p) => p.map((x, i) => i === index ? { ...x, sort_order: v ?? 0 } : x))} />
                           </div>
+
+                          {/* This variant's OWN condition — editing it never touches another variant. */}
+                          <div className="rounded-xl border border-dashed border-mint-deep dark:border-border p-3">
+                            <ConditionEditor idPrefix={`v-${variant.id}`} draft={conditionDraftFor(variant.id)} grades={grades} disabled={disabled}
+                              onChange={(d) => setConditionDraft(variant.id, d)}
+                              onRequestBrandNew={() => setConfirm({ kind: 'brand-new', key: variant.id, label: variant.name })} />
+                            {legacy && canEdit && (
+                              <button type="button" disabled={disabled}
+                                onClick={() => setConditionDraft(variant.id, {
+                                  rowId: conditionDraftFor(variant.id).rowId,
+                                  condition: legacy.condition === 'refurbished' ? 'refurbished' : 'pre_owned',
+                                  condition_grade_id: legacy.condition_grade_id, battery_health: legacy.battery_health,
+                                  cycle_count: legacy.cycle_count, physical_condition: legacy.physical_condition,
+                                  accessories_included: legacy.accessories_included, device_notes: legacy.device_notes,
+                                })}
+                                className="focus-ring mt-2 rounded-full text-[12px] font-semibold text-amber-700 dark:text-amber-400">
+                                Apply older details to this variant
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Warranty: the product default unless this variant overrides it. */}
+                          {(() => {
+                            const override = planRows.find((r) => r.variant_id === variant.id)
+                            return (
+                              <div className="rounded-xl border border-dashed border-mint-deep dark:border-border p-3">
+                                <p className="mb-2 text-[12.5px] font-semibold text-foreground">Warranty</p>
+                                {override ? (
+                                  <>
+                                    {renderPlan(override, `vw-${variant.id}`)}
+                                    {canEdit && (
+                                      <button type="button" disabled={disabled || rowBusy}
+                                        onClick={() => setConfirm({ kind: 'plan', id: override.id, label: variant.name })}
+                                        className="focus-ring mt-3 rounded-full text-[12px] font-semibold text-red-500">
+                                        Remove override — use the product warranty
+                                      </button>
+                                    )}
+                                  </>
+                                ) : (
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <p className="text-[12.5px] text-muted-foreground">Uses the product warranty.</p>
+                                    {canEdit && (
+                                      <Button type="button" variant="outline" size="sm" disabled={disabled || rowBusy}
+                                        onClick={() => void runRowAction(async () => {
+                                          // Starts as "No Warranty"; configure it here before saving.
+                                          await createPlan(productId, variant.id, { warranty_type: 'none' })
+                                        })}>
+                                        Override for this variant
+                                      </Button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })()}
                         </div>
                       </div>
                     ))}
@@ -526,6 +742,14 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
                             onChange={(e) => setImages((p) => p.map((x, i) => i === index ? { ...x, path: e.target.value } : x))}
                             className="focus-ring w-full rounded-xl border border-mint-deep dark:border-border bg-background px-3 py-2 font-mono text-[12px] text-foreground focus:outline-none focus:border-primary/45 disabled:opacity-60" />
                         )}
+                        {hasVariants && (
+                          <select aria-label="Shown for" value={image.variant_id ?? ''} disabled={disabled}
+                            onChange={(e) => setImages((p) => p.map((x, i) => i === index ? { ...x, variant_id: e.target.value || null } : x))}
+                            className="focus-ring w-full rounded-xl border border-mint-deep dark:border-border bg-background px-3 py-2 text-[13px] text-foreground focus:outline-none focus:border-primary/45 disabled:opacity-60">
+                            <option value="">All variants</option>
+                            {detail.variants.map((v) => <option key={v.id} value={v.id}>Only {v.name}</option>)}
+                          </select>
+                        )}
                         <input aria-label="Image label" value={image.alt} disabled={disabled} placeholder="Label, e.g. Front, Back, Battery health"
                           onChange={(e) => setImages((p) => p.map((x, i) => i === index ? { ...x, alt: e.target.value } : x))}
                           className="focus-ring w-full rounded-xl border border-mint-deep dark:border-border bg-background px-3 py-2 text-[13px] text-foreground focus:outline-none focus:border-primary/45 disabled:opacity-60" />
@@ -553,6 +777,14 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
 
                   <input ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp" multiple hidden
                     onChange={(e) => void uploadImages(e.target.files)} />
+                  {hasVariants && (
+                    <select aria-label="Upload photos for" value={uploadTarget} disabled={disabled || rowBusy}
+                      onChange={(e) => setUploadTarget(e.target.value)}
+                      className="focus-ring mr-2 rounded-xl border border-mint-deep dark:border-border bg-card px-3 py-2 text-[13px] text-foreground focus:outline-none disabled:opacity-60">
+                      <option value="">For all variants</option>
+                      {detail.variants.map((v) => <option key={v.id} value={v.id}>For {v.name} only</option>)}
+                    </select>
+                  )}
                   <Button type="button" variant="outline" size="sm" disabled={disabled || rowBusy}
                     onClick={() => fileInput.current?.click()}>
                     {rowBusy
@@ -663,15 +895,21 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
                   : confirm.kind === 'image' ? 'Remove this image?'
                   : confirm.kind === 'compatibility' ? 'Remove this entry?'
                   : confirm.kind === 'warranty' ? 'Delete this warranty option?'
+                  : confirm.kind === 'plan' ? 'Remove this warranty override?'
+                  : confirm.kind === 'brand-new' ? 'Switch to Brand New?'
                   : confirm.orderLines > 0 ? 'This product has been ordered' : 'Delete this product?'}
               </h3>
               <p className="mb-5 text-sm leading-relaxed text-muted-foreground">
                 {confirm.kind === 'variant'
-                  ? `“${confirm.label}” and its price history are removed permanently. Carts that hold it will no longer resolve it.`
+                  ? `“${confirm.label}” and its price history, condition, warranty override and variant-only photos are removed permanently. Carts that hold it will no longer resolve it.`
                   : confirm.kind === 'image'
                     ? `${confirm.label} stops being shown. An uploaded file is deleted from storage; a bundled file is untouched.`
                   : confirm.kind === 'warranty'
                     ? `The ${confirm.label} stops being offered. Orders already placed with it keep their recorded warranty and price.`
+                  : confirm.kind === 'plan'
+                    ? `${confirm.label} goes back to the product warranty, and this override's options are deleted. Placed orders keep their recorded warranty.`
+                  : confirm.kind === 'brand-new'
+                    ? `The grade, battery health, cycle count, physical condition, accessories and notes of ${confirm.label} will be cleared when you save. Other variants are not affected, and photos are not deleted.`
                     : confirm.kind === 'compatibility'
                       ? `“${confirm.label}” is removed from this product's compatibility list.`
                       : confirm.orderLines > 0
@@ -692,11 +930,15 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
                       else if (target.kind === 'image') void runRowAction(() => deleteImage(target.id))
                       else if (target.kind === 'compatibility') void runRowAction(() => deleteCompatibility(target.id))
                       else if (target.kind === 'warranty') void runRowAction(() => deleteWarrantyOption(target.id))
+                      else if (target.kind === 'plan') void runRowAction(() => deletePlan(target.id))
+                      else if (target.kind === 'brand-new') {
+                        setConditionDraft(target.key, { ...BRAND_NEW_FIELDS, rowId: conditionDraftFor(target.key).rowId })
+                      }
                       else void handleDeleteProduct()
                     }}>
                     {rowBusy
                       ? <><LoaderCircle size={16} className="mr-2 animate-spin motion-reduce:animate-none" />Removing…</>
-                      : 'Remove'}
+                      : confirm.kind === 'brand-new' ? 'Switch to Brand New' : 'Remove'}
                   </Button>
                 )}
               </div>

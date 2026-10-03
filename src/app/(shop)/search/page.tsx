@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Header } from '@/components/ui/Header'
 import { ProductCard } from '@/components/ui/ProductCard'
 import { EmptyState } from '@/components/ui/EmptyState'
-import { useCatalogProducts } from '@/lib/catalog'
+import { useCatalogProducts, conditionSearchText } from '@/lib/catalog'
 import { Search as SearchIcon, X } from 'lucide-react'
 import { motion } from 'framer-motion'
 
@@ -20,7 +20,10 @@ export default function SearchPage() {
         p.category.toLowerCase().includes(query.toLowerCase()) ||
         p.model?.toLowerCase().includes(query.toLowerCase()) ||
         p.compatibility?.some(c => c.toLowerCase().includes(query.toLowerCase())) ||
-        Object.values(p.specifications).some(val => val.toLowerCase().includes(query.toLowerCase()))
+        Object.values(p.specifications).some(val => val.toLowerCase().includes(query.toLowerCase())) ||
+        // "pre-owned", "grade a", "brand new": a product matches when ANY of
+        // its variants (or the product itself, without variants) does.
+        conditionSearchText(p).includes(query.toLowerCase())
       )
 
   const suggestions = [
