@@ -32,18 +32,20 @@ export function resolveAccess(status: CustomerAuthStatus, customerType: Customer
  * Which part of the app a path belongs to.
  *
  *   entry     – onboarding, type selection, sign-in: open to everyone
- *   retail    – the Retail storefront home and the wholesale-access request
- *   wholesale – the Wholesale storefront
- *   shared    – the one catalog, cart, wishlist and profile. Both tiers shop
- *               here; the database prices every product for the caller's own
- *               tier, so there is no separate catalog to duplicate.
+ *   retail    – the Retail storefront home
+ *   wholesale – the Wholesale Portal
+ *   shared    – the one catalog, cart, wishlist, profile and the wholesale
+ *               application/status page. Both tiers shop here; the database
+ *               prices every product for the caller's own tier, so there is no
+ *               separate catalog to duplicate. The application page is shared
+ *               so an approved account can see "Approved" and its portal link.
  *
  * Anything not listed is `shared`, which still requires a signed-in account.
  */
 export type RouteZone = 'entry' | 'retail' | 'wholesale' | 'shared'
 
 const ENTRY_ROUTES = ['/onboarding', '/welcome', '/account/sign-in', '/account/sign-up', '/auth/callback']
-const RETAIL_ROUTES = ['/account/wholesale-request']
+const RETAIL_ROUTES: string[] = []
 const WHOLESALE_ROUTES = ['/wholesale']
 
 export const WHOLESALE_REQUEST_PATH = '/account/wholesale-request'
@@ -143,7 +145,10 @@ function decideCustomerAccess(access: CustomerAccess, pathname: string, entry: E
       return normalise(pathname) === '/profile' ? { kind: 'render' } : { kind: 'error' }
 
     case 'retail':
-      return zone === 'wholesale' ? { kind: 'redirect', to: homeFor(access) } : { kind: 'render' }
+      // Not approved (no application, draft, submitted, assistance requested,
+      // under review or rejected — or VIP expired/revoked): the portal never
+      // renders. Send them to their application status instead.
+      return zone === 'wholesale' ? { kind: 'redirect', to: WHOLESALE_REQUEST_PATH } : { kind: 'render' }
 
     case 'wholesale_vip':
       return zone === 'retail' ? { kind: 'redirect', to: homeFor(access) } : { kind: 'render' }

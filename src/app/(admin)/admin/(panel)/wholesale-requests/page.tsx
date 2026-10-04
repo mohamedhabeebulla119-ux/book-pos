@@ -3,25 +3,34 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Search, X, LoaderCircle, AlertCircle, Check, Lock, Inbox, Crown,
-  Mail, Phone, Building2, ShieldCheck, Clock,
+  Mail, Phone, Building2, ShieldCheck, Clock, LifeBuoy, FolderOpen,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
 import { AdminPageHeading, StatCard } from '@/components/admin/AdminPage'
 import { useAdminAuth } from '@/context/AdminAuthContext'
 import { describeAdminError, logAdminError } from '@/lib/admin/errors'
+import { WholesaleApplicationEditor } from '@/components/admin/wholesale/WholesaleApplicationEditor'
 import {
-  listWholesaleRequests, reviewRequest, canReviewRequests, matchesRequestQuery,
+  listWholesaleRequests, canReviewRequests, matchesRequestQuery, isDecidable, missingFields,
   REQUEST_STATUS_LABEL,
-  type AdminWholesaleRequest, type ReviewDecision,
+  type AdminWholesaleRequest,
 } from '@/lib/admin/wholesaleRequests'
 
 type Load = { kind: 'loading' } | { kind: 'ready' } | { kind: 'error'; message: string }
-type Scope = 'pending' | 'approved' | 'rejected' | 'all'
+type Scope = 'all' | 'pending' | 'assistance_requested' | 'under_review' | 'approved' | 'rejected'
 
+/** "Pending" = submitted and awaiting a decision (submitted, assistance requested or under review). */
 const SCOPES: readonly [Scope, string][] = [
-  ['pending', 'Pending'], ['approved', 'Approved'], ['rejected', 'Rejected'], ['all', 'All'],
+  ['all', 'All'], ['pending', 'Pending'], ['assistance_requested', 'Assistance Requested'],
+  ['under_review', 'Under Review'], ['approved', 'Approved'], ['rejected', 'Rejected'],
 ]
+
+function inScope(status: string, scope: Scope): boolean {
+  if (scope === 'all') return true
+  if (scope === 'pending') return isDecidable(status)
+  return status === scope
+}
 
 function dateTime(iso: string): string {
   return new Date(iso).toLocaleString('en-GB', {
@@ -33,6 +42,7 @@ function StatusBadge({ status }: { status: string }) {
   const tone =
     status === 'approved' ? 'border-mint-deep bg-primary-soft text-primary'
     : status === 'rejected' ? 'border-red-500/25 bg-red-500/8 text-red-500'
+    : status === 'draft' ? 'border-border bg-muted text-muted-foreground'
     : 'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400'
   return (
     <span className={cn('inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap', tone)}>
@@ -61,11 +71,8 @@ export default function AdminWholesaleRequestsPage() {
   const [query, setQuery] = useState('')
   const [scope, setScope] = useState<Scope>('pending')
 
-  const [confirming, setConfirming] = useState<{ request: AdminWholesaleRequest; decision: ReviewDecision } | null>(null)
-  const [note, setNote] = useState('')
-  const [pendingId, setPendingId] = useState<string | null>(null)
+  const [openId, setOpenId] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
-  const [actionError, setActionError] = useState<string | null>(null)
 
   const applyData = useCallback((rows: AdminWholesaleRequest[]) => {
     setRequests(rows)
@@ -99,37 +106,29 @@ export default function AdminWholesaleRequestsPage() {
   }, [toast])
 
   const filtered = useMemo(() => requests.filter((request) => {
-    if (scope !== 'all' && request.status !== scope) return false
+    if (!inScope(request.status, scope)) return false
     return matchesRequestQuery(request, query)
   }), [requests, scope, query])
 
   const counts = useMemo(() => ({
-    pending: requests.filter((r) => r.status === 'pending').length,
+    pending: requests.filter((r) => isDecidable(r.status)).length,
+    assistance: requests.filter((r) => r.status === 'assistance_requested').length,
     approved: requests.filter((r) => r.status === 'approved').length,
     rejected: requests.filter((r) => r.status === 'rejected').length,
   }), [requests])
 
-  async function applyDecision(request: AdminWholesaleRequest, decision: ReviewDecision) {
-    setConfirming(null)
-    setActionError(null)
-    setPendingId(request.id)
-    const who = request.customerName || request.customerEmail || request.business_name
+  // Looked up by id so the editor always shows the freshly re-read row.
+  const opened = openId ? requests.find((r) => r.id === openId) ?? null : null
+
+  /** After any write: re-read rather than trusting local state — on approval the
+   *  database also changed the customer's tier, and the queue shows it. */
+  async function handleChanged(message: string) {
     try {
-      await reviewRequest(request.id, decision, note)
-      setNote('')
-      // Re-read rather than trusting local state: on approval the database also
-      // changed the customer's tier, and this list shows it.
-      const rows = await listWholesaleRequests()
-      applyData(rows)
-      setToast(decision === 'approved'
-        ? `${who} now receives Wholesale VIP pricing.`
-        : `${who}'s request was declined.`)
+      applyData(await listWholesaleRequests())
+      setOpenId(null)
+      setToast(message)
     } catch (err) {
-      // Never claim success when the RPC refused.
-      logAdminError('wholesale-requests:review', err)
-      setActionError(describeAdminError(err, 'The database refused the decision.'))
-    } finally {
-      setPendingId(null)
+      applyError(err)
     }
   }
 
@@ -139,14 +138,16 @@ export default function AdminWholesaleRequestsPage() {
         title="Wholesale Requests"
         subtitle={
           load.kind === 'ready'
-            ? `${counts.pending} awaiting review · ${requests.length} in total.`
+            ? `${counts.pending} awaiting a decision · ${counts.assistance} need assistance · ${requests.length} in total.`
             : 'Business applications for Wholesale VIP pricing.'
         }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 mb-6">
-        <StatCard label="Awaiting review" icon={Clock}
-          value={load.kind === 'ready' ? String(counts.pending) : '—'} note="Open applications" />
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 mb-6">
+        <StatCard label="Pending" icon={Clock}
+          value={load.kind === 'ready' ? String(counts.pending) : '—'} note="Awaiting a decision" />
+        <StatCard label="Assistance" icon={LifeBuoy}
+          value={load.kind === 'ready' ? String(counts.assistance) : '—'} note="Customer asked for help" />
         <StatCard label="Approved" icon={Crown}
           value={load.kind === 'ready' ? String(counts.approved) : '—'} note="Granted Wholesale VIP" />
         <StatCard label="Declined" icon={X}
@@ -191,7 +192,7 @@ export default function AdminWholesaleRequestsPage() {
           )}
         </div>
 
-        <div className="flex rounded-xl border border-mint-deep dark:border-border bg-card p-1">
+        <div className="flex overflow-x-auto rounded-xl border border-mint-deep dark:border-border bg-card p-1">
           {SCOPES.map(([value, label]) => (
             <button key={value} type="button" onClick={() => setScope(value)} aria-pressed={scope === value}
               className={cn('focus-ring rounded-lg px-3 h-9 text-[13px] font-semibold whitespace-nowrap transition-colors',
@@ -201,13 +202,6 @@ export default function AdminWholesaleRequestsPage() {
           ))}
         </div>
       </div>
-
-      {actionError && (
-        <div role="alert" className="mb-4 flex items-start gap-2.5 rounded-2xl border border-red-500/25 bg-red-500/8 px-4 py-3">
-          <AlertCircle size={15} className="mt-0.5 shrink-0 text-red-500" />
-          <p className="text-[13px] leading-snug text-foreground">{actionError}</p>
-        </div>
-      )}
 
       {load.kind === 'loading' && (
         <div className="flex items-center justify-center gap-2.5 py-16 text-sm text-muted-foreground">
@@ -245,23 +239,37 @@ export default function AdminWholesaleRequestsPage() {
       {load.kind === 'ready' && filtered.length > 0 && (
         <div className="space-y-3.5">
           {filtered.map((request) => {
-            const busy = pendingId === request.id
-            const open = request.status === 'pending'
+            const decidable = isDecidable(request.status)
+            const assistance = request.status === 'assistance_requested'
+            const missing = missingFields(request)
             return (
               <article key={request.id}
-                className="bg-surface border border-mint/80 dark:border-border rounded-[26px] shadow-card p-5">
+                className={cn('bg-surface border rounded-[26px] shadow-card p-5',
+                  assistance ? 'border-amber-500/45 ring-1 ring-amber-500/25' : 'border-mint/80 dark:border-border')}>
+                {assistance && (
+                  <p className="mb-4 flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2.5 text-[12.5px] font-medium leading-snug text-foreground">
+                    <LifeBuoy size={14} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                    Customer requested assistance with wholesale application
+                    {request.assistance_requested_at ? ` · ${dateTime(request.assistance_requested_at)}` : ''}
+                  </p>
+                )}
                 <header className="flex flex-wrap items-start justify-between gap-3 mb-4">
                   <div className="min-w-0">
                     <h2 className="flex items-center gap-2 text-[16px] font-bold tracking-tight text-foreground">
                       <Building2 size={16} className="shrink-0 text-muted-foreground" />
-                      <span className="truncate">{request.business_name}</span>
+                      <span className="truncate">{request.business_name.trim() || 'Business name not provided'}</span>
                     </h2>
                     <p className="mt-1 text-[12px] text-muted-foreground">
-                      Submitted {dateTime(request.created_at)}
+                      {request.status === 'draft' ? 'Draft started' : 'Applied'} {dateTime(request.submitted_at ?? request.created_at)}
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <StatusBadge status={request.status} />
+                    {decidable && missing.length > 0 && (
+                      <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-700 dark:text-amber-400 whitespace-nowrap">
+                        {missing.length} missing
+                      </span>
+                    )}
                     {request.customerType === 'wholesale_vip' && (
                       <span className="inline-flex items-center gap-1.5 rounded-full border border-mint-deep bg-primary-soft px-2.5 py-1 text-[11px] font-semibold text-primary whitespace-nowrap">
                         <Crown size={12} /> On VIP pricing
@@ -292,14 +300,8 @@ export default function AdminWholesaleRequestsPage() {
                   )}
                 </div>
 
-                {request.message && (
-                  <p className="mb-4 rounded-xl border border-mint/70 dark:border-border bg-card px-3.5 py-3 text-[13px] leading-relaxed text-foreground">
-                    {request.message}
-                  </p>
-                )}
-
-                {!open && (
-                  <div className="rounded-xl border border-mint/70 dark:border-border bg-card px-3.5 py-3">
+                {(request.status === 'approved' || request.status === 'rejected') && (
+                  <div className="mb-4 rounded-xl border border-mint/70 dark:border-border bg-card px-3.5 py-3">
                     <p className="text-[12px] text-muted-foreground">
                       Reviewed {request.reviewed_at ? dateTime(request.reviewed_at) : dateTime(request.updated_at)}
                     </p>
@@ -309,78 +311,22 @@ export default function AdminWholesaleRequestsPage() {
                   </div>
                 )}
 
-                {open && canReview && (
-                  <div className="flex flex-col sm:flex-row gap-2.5">
-                    <Button variant="ghost" disabled={busy}
-                      onClick={() => { setNote(''); setConfirming({ request, decision: 'rejected' }) }}>
-                      Decline
-                    </Button>
-                    <Button disabled={busy}
-                      onClick={() => { setNote(''); setConfirming({ request, decision: 'approved' }) }}>
-                      {busy
-                        ? <LoaderCircle size={15} className="animate-spin motion-reduce:animate-none" />
-                        : 'Approve and grant VIP'}
-                    </Button>
-                  </div>
-                )}
+                <Button variant={decidable && canReview ? 'primary' : 'secondary'} size="sm"
+                  onClick={() => setOpenId(request.id)}>
+                  <FolderOpen size={14} className="mr-1.5" /> Open Application
+                </Button>
               </article>
             )
           })}
         </div>
       )}
 
-      {/* Confirmation */}
-      {confirming && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-5">
-          <button type="button" aria-label="Cancel" onClick={() => setConfirming(null)}
-            className="absolute inset-0 bg-black/45 backdrop-blur-[2px]" />
-          <div role="dialog" aria-modal="true" aria-labelledby="review-confirm-title"
-            className="relative w-full max-w-sm rounded-[26px] border border-mint/80 dark:border-border bg-surface p-6 shadow-float">
-            <span className={cn('mb-4 flex h-12 w-12 items-center justify-center rounded-full border',
-              confirming.decision === 'approved'
-                ? 'border-mint-deep bg-primary-soft text-primary'
-                : 'border-border bg-muted text-muted-foreground')}>
-              <Crown size={22} strokeWidth={1.9} />
-            </span>
-
-            <h2 id="review-confirm-title" className="text-lg font-bold tracking-tight text-foreground mb-2">
-              {confirming.decision === 'approved' ? 'Approve and grant VIP?' : 'Decline this request?'}
-            </h2>
-
-            <div className="mb-3 rounded-xl border border-mint/70 dark:border-border bg-card px-3 py-2.5">
-              <span className="block text-[13px] font-semibold text-foreground truncate">
-                {confirming.request.business_name}
-              </span>
-              {confirming.request.customerEmail && (
-                <span className="block text-[12px] text-muted-foreground truncate">
-                  {confirming.request.customerEmail}
-                </span>
-              )}
-            </div>
-
-            <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-              {confirming.decision === 'approved'
-                ? 'This customer will immediately receive Wholesale VIP pricing on every product that has a VIP price, and the Retail price everywhere else.'
-                : 'The customer will be told the request was not approved. Their pricing does not change, and they may apply again.'}
-            </p>
-
-            <label htmlFor="review-note" className="mb-1.5 block text-[13px] font-semibold text-foreground">
-              Note for the customer <span className="font-normal text-muted-foreground">(optional)</span>
-            </label>
-            <textarea
-              id="review-note" rows={2} value={note} onChange={(e) => setNote(e.target.value)}
-              className="focus-ring mb-5 w-full resize-none rounded-xl border border-mint-deep dark:border-border bg-card px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/45"
-              placeholder={confirming.decision === 'approved' ? 'Welcome aboard.' : 'Why this was not approved.'}
-            />
-
-            <div className="flex gap-2.5">
-              <Button variant="ghost" fullWidth onClick={() => setConfirming(null)}>Cancel</Button>
-              <Button fullWidth onClick={() => void applyDecision(confirming.request, confirming.decision)}>
-                {confirming.decision === 'approved' ? 'Approve' : 'Decline'}
-              </Button>
-            </div>
-          </div>
-        </div>
+      {opened && (
+        <WholesaleApplicationEditor
+          key={`${opened.id}:${opened.updated_at}:${opened.adminNotesUpdatedAt ?? ''}`}
+          request={opened} canReview={canReview}
+          onClose={() => setOpenId(null)} onChanged={handleChanged}
+        />
       )}
 
       {toast && (

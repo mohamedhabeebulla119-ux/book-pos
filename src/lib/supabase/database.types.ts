@@ -1463,13 +1463,53 @@ export type Database = {
           },
         ]
       }
+      wholesale_access_request_notes: {
+        Row: {
+          admin_notes: string
+          request_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          admin_notes: string
+          request_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          admin_notes?: string
+          request_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wholesale_access_request_notes_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: true
+            referencedRelation: "wholesale_access_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wholesale_access_request_notes_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wholesale_access_requests: {
         Row: {
+          admin_updated_at: string | null
+          admin_updated_by: string | null
+          assistance_requested_at: string | null
           business_name: string
           business_registration: string | null
           business_type: string | null
           contact_phone: string | null
           created_at: string
+          customer_values: Json | null
           id: string
           message: string | null
           monthly_volume: string | null
@@ -1478,14 +1518,19 @@ export type Database = {
           reviewed_at: string | null
           reviewed_by: string | null
           status: string
+          submitted_at: string | null
           updated_at: string
         }
         Insert: {
-          business_name: string
+          admin_updated_at?: string | null
+          admin_updated_by?: string | null
+          assistance_requested_at?: string | null
+          business_name?: string
           business_registration?: string | null
           business_type?: string | null
           contact_phone?: string | null
           created_at?: string
+          customer_values?: Json | null
           id?: string
           message?: string | null
           monthly_volume?: string | null
@@ -1494,14 +1539,19 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string
+          submitted_at?: string | null
           updated_at?: string
         }
         Update: {
+          admin_updated_at?: string | null
+          admin_updated_by?: string | null
+          assistance_requested_at?: string | null
           business_name?: string
           business_registration?: string | null
           business_type?: string | null
           contact_phone?: string | null
           created_at?: string
+          customer_values?: Json | null
           id?: string
           message?: string | null
           monthly_volume?: string | null
@@ -1510,9 +1560,17 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string
+          submitted_at?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "wholesale_access_requests_admin_updated_by_fkey"
+            columns: ["admin_updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "wholesale_access_requests_profile_id_fkey"
             columns: ["profile_id"]
@@ -1650,11 +1708,15 @@ export type Database = {
       admin_review_wholesale_request: {
         Args: { p_note?: string; p_request_id: string; p_status: string }
         Returns: {
+          admin_updated_at: string | null
+          admin_updated_by: string | null
+          assistance_requested_at: string | null
           business_name: string
           business_registration: string | null
           business_type: string | null
           contact_phone: string | null
           created_at: string
+          customer_values: Json | null
           id: string
           message: string | null
           monthly_volume: string | null
@@ -1663,6 +1725,7 @@ export type Database = {
           reviewed_at: string | null
           reviewed_by: string | null
           status: string
+          submitted_at: string | null
           updated_at: string
         }
         SetofOptions: {
@@ -1723,6 +1786,66 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "product_prices"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      admin_update_wholesale_request: {
+        Args: { p_admin_notes?: string; p_fields?: Json; p_request_id: string }
+        Returns: {
+          admin_updated_at: string | null
+          admin_updated_by: string | null
+          assistance_requested_at: string | null
+          business_name: string
+          business_registration: string | null
+          business_type: string | null
+          contact_phone: string | null
+          created_at: string
+          customer_values: Json | null
+          id: string
+          message: string | null
+          monthly_volume: string | null
+          profile_id: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          submitted_at: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "wholesale_access_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      customer_save_wholesale_application: {
+        Args: { p_action: string; p_fields: Json }
+        Returns: {
+          admin_updated_at: string | null
+          admin_updated_by: string | null
+          assistance_requested_at: string | null
+          business_name: string
+          business_registration: string | null
+          business_type: string | null
+          contact_phone: string | null
+          created_at: string
+          customer_values: Json | null
+          id: string
+          message: string | null
+          monthly_volume: string | null
+          profile_id: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          submitted_at: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "wholesale_access_requests"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -1863,3 +1986,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+

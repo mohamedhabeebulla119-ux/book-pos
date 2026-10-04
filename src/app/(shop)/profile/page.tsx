@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Header } from '@/components/ui/Header'
@@ -11,6 +12,7 @@ import { useCustomerAuth } from '@/context/CustomerAuthContext'
 import { useGuestMode, endGuestSession } from '@/lib/auth/guestMode'
 import { WHOLESALE_REQUEST_PATH } from '@/lib/customer/access'
 import { clearExperience } from '@/utils/experience'
+import { listOwnRequests, openRequest, latestDecision, type RequestStatus } from '@/lib/customer/wholesale'
 import {
   Moon, Sun, ChevronRight, Package, CreditCard, Settings, HelpCircle, LogOut, Heart,
   LogIn, Store, Repeat, FlaskConical,
@@ -27,6 +29,30 @@ export default function ProfilePage() {
   } = useCustomerAuth()
   /** A testing label, deliberately kept out of everything that decides pricing. */
   const guest = useGuestMode()
+
+  // The retail account's wholesale application status, for the menu entry
+  // below. Display only — the portal itself opens solely for wholesale_vip.
+  const [applicationStatus, setApplicationStatus] = useState<RequestStatus | null>(null)
+  useEffect(() => {
+    if (access !== 'retail') return
+    let cancelled = false
+    listOwnRequests()
+      .then((rows) => {
+        if (cancelled) return
+        const current = openRequest(rows) ?? latestDecision(rows)
+        setApplicationStatus((current?.status as RequestStatus | undefined) ?? null)
+      })
+      .catch(() => { /* the entry falls back to "Apply for business pricing" */ })
+    return () => { cancelled = true }
+  }, [access])
+
+  const APPLICATION_ENTRY: Partial<Record<RequestStatus, string>> = {
+    draft: 'Draft saved — finish your application',
+    pending: 'Application pending',
+    assistance_requested: 'Assistance requested',
+    under_review: 'Application under review',
+    rejected: 'Changes required',
+  }
 
   /** 'error' is still a session — only the profile read failed. */
   const hasSession = status === 'signed-in' || status === 'error'
@@ -55,8 +81,11 @@ export default function ProfilePage() {
     // Retail accounts are never linked into the Wholesale storefront — only to
     // the request page in their own area. Decided by the database tier.
     access === 'wholesale_vip'
-      ? { icon: Store, label: 'Wholesale', description: 'Wholesale pricing is active', chip: CHIP, href: '/wholesale' }
-      : { icon: Store, label: 'Wholesale access', description: 'Apply for business pricing', chip: CHIP, href: WHOLESALE_REQUEST_PATH },
+      ? { icon: Store, label: 'Wholesale Portal', description: 'Wholesale pricing is active', chip: CHIP, href: '/wholesale' }
+      : {
+          icon: Store, label: 'Wholesale Application', chip: CHIP, href: WHOLESALE_REQUEST_PATH,
+          description: (applicationStatus && APPLICATION_ENTRY[applicationStatus]) || 'Apply for business pricing',
+        },
   ]
 
   return (
