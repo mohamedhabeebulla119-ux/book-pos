@@ -307,38 +307,45 @@ export default function CartPage() {
       {/* Floating purchase panel — sits above the bottom navigation, sharing its
           geometry tokens so the two can never overlap. */}
       <div
-        className="fixed left-3 right-3 z-40 mx-auto w-auto max-w-[456px] rounded-[26px] border border-white/60 dark:border-white/8 bg-glass shadow-nav p-3"
+        className="fixed left-3 right-3 z-40 mx-auto w-auto max-w-[456px]"
         style={{ bottom: 'calc(var(--nav-offset) + 0.5rem)' }}
       >
-        <div className="flex items-center gap-2">
-          <div className="min-w-0 flex-1">
-            <span className="block text-[11px] font-medium text-muted-foreground leading-none mb-1">Total</span>
-            <span className="block text-[17px] min-[360px]:text-[19px] font-bold tracking-tight text-foreground truncate">
-              {formatPrice(cartTotal)}
-            </span>
+        {/* Restrained green glow that bleeds softly beyond the panel's edges. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-3 -top-2 bottom-2 -z-10 rounded-[32px] bg-primary-bright/20 blur-xl dark:bg-primary-bright/10"
+        />
+        <div className="rounded-[26px] border border-primary/25 dark:border-primary/15 bg-purchase shadow-purchase p-3">
+          <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <span className="block text-[11px] font-medium text-foreground/70 dark:text-muted-foreground leading-none mb-1">Total</span>
+              <span className="block text-[17px] min-[360px]:text-[19px] font-bold tracking-tight text-[var(--purchase-price)] dark:text-foreground truncate">
+                {formatPrice(cartTotal)}
+              </span>
+            </div>
+
+            <Link
+              href="/categories"
+              aria-label="Continue shopping"
+              className="relative shrink-0 w-11 h-11 min-[360px]:w-12 min-[360px]:h-12 rounded-2xl bg-foreground text-background flex items-center justify-center shadow-card active:scale-95 transition-transform"
+            >
+              <ShoppingBag size={19} strokeWidth={2} />
+              <span className="absolute -top-1 -right-1 bg-gradient-cta text-white text-[10px] font-bold h-5 min-w-5 px-1 rounded-full flex items-center justify-center border-2 border-background">
+                {cartCount > 99 ? '99+' : cartCount}
+              </span>
+            </Link>
+
+            <Button
+              size="lg"
+              disabled={placing || blocked}
+              onClick={() => void submitOrder()}
+              className="shrink-0 h-11 min-[360px]:h-12 px-5 min-[360px]:px-6 text-[15px] bg-gradient-cta-deep hover:bg-gradient-cta-deep-hover shadow-purchase-cta hover:shadow-purchase-cta-hover"
+            >
+              {placing
+                ? <><LoaderCircle size={16} className="mr-1.5 animate-spin motion-reduce:animate-none" />Placing…</>
+                : 'Place order'}
+            </Button>
           </div>
-
-          <Link
-            href="/categories"
-            aria-label="Continue shopping"
-            className="relative shrink-0 w-11 h-11 min-[360px]:w-12 min-[360px]:h-12 rounded-2xl bg-foreground text-background flex items-center justify-center shadow-card active:scale-95 transition-transform"
-          >
-            <ShoppingBag size={19} strokeWidth={2} />
-            <span className="absolute -top-1 -right-1 bg-gradient-cta text-white text-[10px] font-bold h-5 min-w-5 px-1 rounded-full flex items-center justify-center border-2 border-background">
-              {cartCount > 99 ? '99+' : cartCount}
-            </span>
-          </Link>
-
-          <Button
-            size="lg"
-            disabled={placing || blocked}
-            onClick={() => void submitOrder()}
-            className="shrink-0 h-11 min-[360px]:h-12 px-5 min-[360px]:px-6 text-[15px]"
-          >
-            {placing
-              ? <><LoaderCircle size={16} className="mr-1.5 animate-spin motion-reduce:animate-none" />Placing…</>
-              : 'Place order'}
-          </Button>
         </div>
       </div>
     </div>
