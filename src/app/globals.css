@@ -90,6 +90,18 @@
   --grad-nav-dots: radial-gradient(rgba(255, 255, 255, 0.16) 1px, transparent 1px);
   --shadow-nav-glow: 0 2px 6px rgba(16, 24, 28, 0.06), 0 14px 34px -10px rgba(31, 138, 77, 0.5);
   --grad-pedestal: linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0) 100%);
+  /* Sticky purchase bar: white-mint → soft mint → gentle Apple green, with a
+     soft top-left sheen. Slightly translucent so the backdrop blur reads. */
+  --grad-purchase:
+    radial-gradient(120% 160% at 0% 0%, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0) 55%),
+    linear-gradient(115deg, rgba(232, 246, 238, 0.94) 0%, rgba(210, 236, 221, 0.93) 52%, rgba(182, 222, 199, 0.93) 100%);
+  /* Deeper CTA used on the purchase bar so it stays distinct from the green
+     container and white label text keeps ≥4.5:1 contrast at its centre. */
+  --grad-cta-deep: linear-gradient(135deg, #27985a 0%, #1d8549 48%, #156d3c 100%);
+  --grad-cta-deep-hover: linear-gradient(135deg, #2ba262 0%, #208f4f 48%, #177642 100%);
+  --shadow-purchase: inset 0 1px 0 rgba(255, 255, 255, 0.75), 0 4px 12px rgba(16, 24, 28, 0.05), 0 18px 40px -14px rgba(31, 138, 77, 0.32);
+  --shadow-purchase-cta: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 6px 16px -6px rgba(21, 109, 60, 0.55);
+  --shadow-purchase-cta-hover: inset 0 1px 0 rgba(255, 255, 255, 0.26), 0 10px 22px -8px rgba(21, 109, 60, 0.6);
 
   --shadow-soft: 0 1px 2px rgba(16, 24, 28, 0.04), 0 10px 30px -14px rgba(16, 24, 28, 0.14);
   --shadow-float: 0 2px 6px rgba(16, 24, 28, 0.05), 0 22px 48px -22px rgba(16, 24, 28, 0.22);
@@ -146,6 +158,12 @@
   --grad-nav-dots: radial-gradient(rgba(255, 255, 255, 0.10) 1px, transparent 1px);
   --shadow-nav-glow: 0 2px 6px rgba(0, 0, 0, 0.4), 0 14px 34px -10px rgba(0, 0, 0, 0.6);
   --grad-pedestal: linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 100%);
+  --grad-purchase:
+    radial-gradient(120% 160% at 0% 0%, rgba(140, 228, 169, 0.1) 0%, rgba(140, 228, 169, 0) 55%),
+    linear-gradient(115deg, rgba(23, 35, 28, 0.9) 0%, rgba(22, 48, 34, 0.88) 52%, rgba(24, 66, 42, 0.88) 100%);
+  --shadow-purchase: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 12px rgba(0, 0, 0, 0.4), 0 18px 40px -14px rgba(88, 207, 131, 0.22);
+  --shadow-purchase-cta: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 6px 16px -6px rgba(0, 0, 0, 0.6);
+  --shadow-purchase-cta-hover: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 10px 22px -8px rgba(88, 207, 131, 0.35);
 
   --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 30px -14px rgba(0, 0, 0, 0.6);
   --shadow-float: 0 2px 6px rgba(0, 0, 0, 0.35), 0 22px 48px -22px rgba(0, 0, 0, 0.7);
@@ -207,7 +225,28 @@ body {
   background-image: var(--grad-pedestal);
 }
 
+@utility bg-purchase {
+  background-image: var(--grad-purchase);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+}
+@utility bg-gradient-cta-deep {
+  background-image: var(--grad-cta-deep);
+}
+@utility bg-gradient-cta-deep-hover {
+  background-image: var(--grad-cta-deep-hover);
+}
+
 /* ── Depth ────────────────────────────────── */
+@utility shadow-purchase {
+  box-shadow: var(--shadow-purchase);
+}
+@utility shadow-purchase-cta {
+  box-shadow: var(--shadow-purchase-cta);
+}
+@utility shadow-purchase-cta-hover {
+  box-shadow: var(--shadow-purchase-cta-hover);
+}
 @utility shadow-card {
   box-shadow: var(--shadow-soft);
 }

@@ -13,17 +13,27 @@ interface StickyActionBarProps {
 export function StickyActionBar({ title, price, onAddToCart, ctaLabel = 'Add to Cart' }: StickyActionBarProps) {
   return (
     <div
-      className="fixed left-3 right-3 z-40 mx-auto w-auto max-w-[456px] rounded-[26px] border border-white/60 dark:border-white/8 bg-glass shadow-nav px-3 py-2.5"
+      className="fixed left-3 right-3 z-40 mx-auto w-auto max-w-[456px]"
       style={{ bottom: 'calc(var(--nav-offset) + 0.5rem)' }}
     >
-      <div className="flex items-center gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="text-[13px] font-semibold truncate text-foreground">{title}</div>
-          <div className="text-xs font-medium text-primary">{price}</div>
+      {/* Restrained green glow that bleeds softly beyond the bar's edges. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-3 -top-2 bottom-2 -z-10 rounded-[32px] bg-primary-bright/20 blur-xl dark:bg-primary-bright/10"
+      />
+      <div className="rounded-[26px] border border-mint-deep/80 dark:border-primary/15 bg-purchase shadow-purchase px-3 py-2.5">
+        <div className="flex items-center gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="text-[13px] font-semibold truncate text-foreground">{title}</div>
+            <div className="text-xs font-semibold tracking-tight text-primary-strong">{price}</div>
+          </div>
+          <Button
+            className="w-auto px-6 h-11 shrink-0 text-sm bg-gradient-cta-deep hover:bg-gradient-cta-deep-hover shadow-purchase-cta hover:shadow-purchase-cta-hover hover:-translate-y-px active:translate-y-0"
+            onClick={onAddToCart}
+          >
+            {ctaLabel}
+          </Button>
         </div>
-        <Button className="w-auto px-6 h-11 shrink-0 text-sm" onClick={onAddToCart}>
-          {ctaLabel}
-        </Button>
       </div>
     </div>
   )
