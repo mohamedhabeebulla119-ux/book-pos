@@ -1,5 +1,6 @@
 "use client"
 
+import { useCallback, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { motion, useReducedMotion } from 'framer-motion'
@@ -9,6 +10,8 @@ import { setExperience, type ShoppingExperience } from '@/utils/experience'
 import { startGuestSession, type GuestExperience } from '@/lib/auth/guestMode'
 import { useCustomerAuth } from '@/context/CustomerAuthContext'
 import { resolvePostSignInDestination } from '@/lib/customer/profile'
+import { decideExperienceSwitch } from '@/lib/customer/access'
+import { WholesaleSwitchBlockedDialog } from '@/components/account/WholesaleSwitchBlockedDialog'
 
 /**
  * Customer entry: "How would you like to continue?"
@@ -61,7 +64,20 @@ const OPTIONS: readonly ExperienceOption[] = [
 export default function WelcomePage() {
   const router = useRouter()
   const shouldReduceMotion = useReducedMotion()
-  const { status, customerType } = useCustomerAuth()
+  const { status, customerType, access } = useCustomerAuth()
+  const [switchBlocked, setSwitchBlocked] = useState(false)
+  const dismissSwitchBlocked = useCallback(() => setSwitchBlocked(false), [])
+
+  /**
+   * Asks the database-derived access state whether this card may be acted on
+   * at all. An approved Wholesale VIP picking Retail is told why not, and
+   * nothing is written or navigated — they stay exactly where they are.
+   */
+  function canSwitchTo(experience: ShoppingExperience): boolean {
+    const decision = decideExperienceSwitch(access, experience)
+    if (decision.kind === 'blocked') setSwitchBlocked(true)
+    return decision.kind === 'allow'
+  }
 
   /**
    * Both cards go through the same phone sign-in. The card is remembered only
@@ -70,6 +86,7 @@ export default function WelcomePage() {
    * Wholesale never opens the Wholesale storefront to a retail account.
    */
   function choose(option: ExperienceOption) {
+    if (!canSwitchTo(option.id)) return
     setExperience(option.id)
     router.replace(status === 'signed-in' ? resolvePostSignInDestination(customerType) : '/account/sign-in')
   }
@@ -83,6 +100,7 @@ export default function WelcomePage() {
    * database for an anonymous caller, which is retail and only retail.
    */
   function startGuest(experience: GuestExperience) {
+    if (!canSwitchTo(experience)) return
     startGuestSession(experience)
     setExperience(experience)
     router.replace(experience === 'wholesale' ? '/wholesale' : '/')
@@ -245,6 +263,8 @@ export default function WelcomePage() {
           Expert after review — choosing it here does not apply it.
         </span>
       </motion.p>
+
+      <WholesaleSwitchBlockedDialog open={switchBlocked} onClose={dismissSwitchBlocked} />
     </div>
   )
 }

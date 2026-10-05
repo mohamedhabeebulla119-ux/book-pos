@@ -1,5 +1,6 @@
 import type { CustomerAuthStatus } from '@/context/CustomerAuthContext'
 import type { CustomerType } from '@/lib/customer/profile'
+import type { ShoppingExperience } from '@/utils/experience'
 
 /**
  * THE customer-access decision — the one place that says which part of the
@@ -70,6 +71,35 @@ export function routeZone(pathname: string): RouteZone {
 /** The storefront home for an account type — what "Home" means for them. */
 export function homeFor(access: CustomerAccess): string {
   return access === 'wholesale_vip' ? '/wholesale' : '/'
+}
+
+/**
+ * Whether the "How would you like to continue?" chooser may act on a card.
+ *
+ * Decided by the same database-derived `access` as decideAccess(), never by the
+ * stored experience preference. An approved Wholesale VIP cannot switch to the
+ * Retail experience: the card is refused with an explanation instead of
+ * silently bouncing them back to the portal. Retail accounts are unaffected —
+ * choosing Wholesale still goes through the existing application flow.
+ *
+ * UX only. Pricing and the portal remain enforced by the database and by
+ * decideAccess() on every navigation, whatever this returns.
+ */
+export type ExperienceSwitchDecision =
+  | { kind: 'allow' }
+  | { kind: 'wait' }
+  | { kind: 'blocked'; reason: 'wholesale-account' }
+
+export function decideExperienceSwitch(
+  access: CustomerAccess,
+  requested: ShoppingExperience,
+): ExperienceSwitchDecision {
+  // The tier is not known yet, so neither card may write a preference.
+  if (access === 'loading') return { kind: 'wait' }
+  if (access === 'wholesale_vip' && requested === 'retail') {
+    return { kind: 'blocked', reason: 'wholesale-account' }
+  }
+  return { kind: 'allow' }
 }
 
 export type UnavailableReason = 'maintenance' | 'retail-closed' | 'wholesale-closed'
