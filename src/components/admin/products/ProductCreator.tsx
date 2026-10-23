@@ -4,11 +4,12 @@ import { useEffect, useState } from 'react'
 import { X, LoaderCircle, Check, AlertCircle, Plus, Trash2, Info, Tags } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import {
-  createProduct, slugify, validateSlug, isProductIdTaken, listDeviceModels,
+  createProduct, slugify, validateSlug, isProductIdTaken, listDeviceModels, ProductKeptError,
   SUBCATEGORY_OPTIONS, LIFECYCLE_OPTIONS, WARRANTY_STATUS_OPTIONS,
   type CategoryRow, type NewProductInput, type NewVariantInput,
 } from '@/lib/admin/products'
 import { parseRupeeInput } from '@/lib/admin/pricing'
+import { MAX_STOCK } from '@/lib/admin/inventory'
 import { CONDITION_OPTIONS } from '@/lib/admin/warranty'
 import {
   TextField, NumberField, TextAreaField, SelectField, CheckboxField, EditorSection, FieldLabel,
@@ -40,7 +41,7 @@ interface VariantDraft extends Omit<NewVariantInput, 'retailRupees' | 'vipRupees
 }
 
 const EMPTY_VARIANT: VariantDraft = {
-  name: '', color: null, color_code: null, storage: null, stock: null, retail: '', vip: '',
+  name: '', color: null, color_code: null, storage: null, retail: '', vip: '',
   condition: 'brand_new',
 }
 
@@ -63,7 +64,8 @@ export function ProductCreator({
 }: {
   categories: CategoryRow[]
   onClose: () => void
-  onCreated: (message: string) => void
+  /** warning = the product needs attention (kept draft, opening stock not recorded). */
+  onCreated: (message: string, warning?: boolean) => void
 }) {
   const [name, setName] = useState('')
   const [productId, setProductId] = useState('')
@@ -136,6 +138,10 @@ export function ProductCreator({
     const slug = validateSlug(productId, 'Product ID')
     if (!slug.ok) { setSave({ kind: 'error', message: slug.reason }); return }
     if (categoryId === '') { setSave({ kind: 'error', message: 'Choose a category.' }); return }
+    if (stock !== null && (!Number.isInteger(stock) || stock < 0 || stock > MAX_STOCK)) {
+      setSave({ kind: 'error', message: `Opening stock must be a whole number from 0 to ${MAX_STOCK.toLocaleString('en-US')}.` })
+      return
+    }
 
     // Prices: whole rupees only, parsed by the same rule the pricing screen uses.
     function rupees(raw: string, label: string): number | null | 'invalid' {
@@ -166,7 +172,6 @@ export function ProductCreator({
         color: variant.color,
         color_code: variant.color_code,
         storage: variant.storage,
-        stock: variant.stock,
         retailRupees: variantRetail,
         vipRupees: variantVip,
         condition: variant.condition,
@@ -187,7 +192,7 @@ export function ProductCreator({
         subcategory,
         model: model.trim() || null,
         description: description.trim(),
-        stock: stock ?? 0,
+        openingStock: stock ?? 0,
         lifecycle_status: lifecycle || null,
         is_new: isNew,
         condition,
@@ -206,14 +211,16 @@ export function ProductCreator({
       }
 
       const result = await createProduct(input)
-      onCreated(
-        result.withheld
-          ? `${trimmedName} — ${result.withheld}`
-          : result.published
-            ? `${trimmedName} is live in the customer catalog.`
-            : `${trimmedName} saved as an unpublished draft.`,
-      )
+      const outcome = result.withheld
+        ? `${trimmedName} — ${result.withheld}`
+        : result.published
+          ? `${trimmedName} is live in the customer catalog.`
+          : `${trimmedName} saved as an unpublished draft.`
+      onCreated(result.stockPending ? `${outcome} ${result.stockPending}` : outcome, Boolean(result.stockPending))
     } catch (err) {
+      // The product exists as an unpublished draft: close, refresh the list so
+      // it can be found, and say exactly what happened.
+      if (err instanceof ProductKeptError) { onCreated(err.message, true); return }
       setSave({ kind: 'error', message: err instanceof Error ? err.message : 'The database refused the product.' })
     }
   }
@@ -302,7 +309,8 @@ export function ProductCreator({
                 onChange={setDescription} />
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <NumberField id="n-stock" label="Stock" min={0} value={stock} disabled={busy} onChange={setStock} />
+                <NumberField id="n-stock" label="Opening stock" min={0} value={stock} disabled={busy} onChange={setStock}
+                  hint={hasVariants ? 'shared by all variants' : 'recorded in stock history'} />
                 <SelectField id="n-life" label="Lifecycle" value={lifecycle} disabled={busy} allowEmpty
                   onChange={setLifecycle}
                   options={LIFECYCLE_OPTIONS.map((s) => ({ value: s, label: s }))} />
@@ -353,7 +361,7 @@ export function ProductCreator({
                         onChange={(e) => setVariants((p) => p.map((v, i) => i === index ? { ...v, color_code: e.target.value || null } : v))}
                         className={`${rowInput} font-mono`} />
                     </div>
-                    <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="grid gap-3 sm:grid-cols-2">
                       <input aria-label={`Variant ${index + 1} retail price`} value={variant.retail} disabled={busy}
                         inputMode="numeric" placeholder="Retail Rs."
                         onChange={(e) => setVariants((p) => p.map((v, i) => i === index ? { ...v, retail: e.target.value } : v))}
@@ -361,10 +369,6 @@ export function ProductCreator({
                       <input aria-label={`Variant ${index + 1} wholesale VIP price`} value={variant.vip} disabled={busy}
                         inputMode="numeric" placeholder="VIP Rs. (optional)"
                         onChange={(e) => setVariants((p) => p.map((v, i) => i === index ? { ...v, vip: e.target.value } : v))}
-                        className={`${rowInput} tabular-nums`} />
-                      <input aria-label={`Variant ${index + 1} stock`} value={variant.stock ?? ''} disabled={busy}
-                        inputMode="numeric" placeholder="Stock (optional)"
-                        onChange={(e) => setVariants((p) => p.map((v, i) => i === index ? { ...v, stock: e.target.value === '' ? null : Number(e.target.value) } : v))}
                         className={`${rowInput} tabular-nums`} />
                     </div>
                   </div>

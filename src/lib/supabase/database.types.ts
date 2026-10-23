@@ -386,33 +386,48 @@ export type Database = {
           actor_id: string | null
           created_at: string
           delta: number
+          entry_seq: number
           id: string
           note: string | null
           order_id: string | null
           product_id: string
+          quantity_after: number | null
+          quantity_before: number | null
           reason: string
+          request_id: string | null
+          txid: unknown
           variant_id: string | null
         }
         Insert: {
           actor_id?: string | null
           created_at?: string
           delta: number
+          entry_seq?: never
           id?: string
           note?: string | null
           order_id?: string | null
           product_id: string
+          quantity_after?: number | null
+          quantity_before?: number | null
           reason: string
+          request_id?: string | null
+          txid?: unknown
           variant_id?: string | null
         }
         Update: {
           actor_id?: string | null
           created_at?: string
           delta?: number
+          entry_seq?: never
           id?: string
           note?: string | null
           order_id?: string | null
           product_id?: string
+          quantity_after?: number | null
+          quantity_before?: number | null
           reason?: string
+          request_id?: string | null
+          txid?: unknown
           variant_id?: string | null
         }
         Relationships: [
@@ -1789,6 +1804,18 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      admin_set_stock: {
+        Args: {
+          p_expected_quantity: number
+          p_new_quantity: number
+          p_note: string
+          p_product_id: string
+          p_reason: string
+          p_request_id: string
+          p_variant_id: string
+        }
+        Returns: Json
       }
       admin_update_wholesale_request: {
         Args: { p_admin_notes?: string; p_fields?: Json; p_request_id: string }

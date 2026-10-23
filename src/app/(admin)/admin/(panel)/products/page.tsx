@@ -40,6 +40,8 @@ export default function AdminProductsPage() {
   const [pendingId, setPendingId] = useState<string | null>(null)
   const [confirming, setConfirming] = useState<AdminProductListItem | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  const [toastWarning, setToastWarning] = useState(false)
+  const showToast = (message: string, warning = false) => { setToast(message); setToastWarning(warning) }
 
   /** Reads categories then products. Pure fetch — sets no state itself. */
   const fetchAll = useCallback(async () => {
@@ -104,9 +106,9 @@ export default function AdminProductsPage() {
     try {
       await setProductActive(row.id, next)
       setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, is_active: next } : r)))
-      setToast(`${row.name} is now ${next ? 'published' : 'unpublished'}.`)
+      showToast(`${row.name} is now ${next ? 'published' : 'unpublished'}.`)
     } catch (err) {
-      setToast(err instanceof Error ? err.message : 'Could not change publication state.')
+      showToast(err instanceof Error ? err.message : 'Could not change publication state.')
     } finally {
       setPendingId(null)
     }
@@ -114,9 +116,10 @@ export default function AdminProductsPage() {
 
   useEffect(() => {
     if (!toast) return
-    const id = window.setTimeout(() => setToast(null), 4000)
+    // A warning (a kept draft, unrecorded opening stock) stays long enough to read.
+    const id = window.setTimeout(() => { setToast(null); setToastWarning(false) }, toastWarning ? 15000 : 4000)
     return () => window.clearTimeout(id)
-  }, [toast])
+  }, [toast, toastWarning])
 
   const activeCount = rows.filter((r) => r.is_active).length
 
@@ -329,9 +332,18 @@ export default function AdminProductsPage() {
 
       {toast && (
         <div role="status" aria-live="polite"
-          className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 flex items-center gap-2 rounded-full border border-mint-deep bg-surface px-4 py-2.5 shadow-float">
-          <Check size={15} className="shrink-0 text-primary" />
+          className={cn('fixed bottom-5 left-1/2 z-50 -translate-x-1/2 flex items-center gap-2 border bg-surface px-4 py-2.5 shadow-float',
+            toastWarning ? 'w-[min(92vw,34rem)] items-start rounded-2xl border-amber-500/40' : 'rounded-full border-mint-deep')}>
+          {toastWarning
+            ? <AlertCircle size={15} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+            : <Check size={15} className="shrink-0 text-primary" />}
           <span className="text-[13px] font-medium text-foreground">{toast}</span>
+          {toastWarning && (
+            <button type="button" aria-label="Dismiss" onClick={() => { setToast(null); setToastWarning(false) }}
+              className="focus-ring ml-auto shrink-0 rounded-full text-muted-foreground hover:text-foreground">
+              <X size={15} />
+            </button>
+          )}
         </div>
       )}
 
@@ -339,7 +351,7 @@ export default function AdminProductsPage() {
         <ProductCreator
           categories={categories}
           onClose={() => setCreating(false)}
-          onCreated={(message) => { setCreating(false); setToast(message); refresh() }}
+          onCreated={(message, warning) => { setCreating(false); showToast(message, Boolean(warning)); refresh() }}
         />
       )}
 
@@ -351,7 +363,7 @@ export default function AdminProductsPage() {
           canEdit={canEdit}
           onClose={() => setEditingId(null)}
           onSaved={refresh}
-          onDeleted={(name) => { setEditingId(null); setToast(`${name} was deleted.`); refresh() }}
+          onDeleted={(name) => { setEditingId(null); showToast(`${name} was deleted.`); refresh() }}
         />
       )}
 

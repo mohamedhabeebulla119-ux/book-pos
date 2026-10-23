@@ -5,6 +5,7 @@ import {
   X, LoaderCircle, Check, AlertCircle, Plus, Trash2, Lock, ImageIcon, Info, Star, Ban, Upload,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { cn } from '@/lib/utils'
 import {
   loadProductDetail, updateProduct, updateVariant, saveSpecs, updateImage,
   addVariant, deleteVariant, addImage, deleteImage, setPrimaryImage,
@@ -23,6 +24,9 @@ import {
 } from '@/lib/admin/warranty'
 import { productImageUrl, warrantyNoun } from '@/lib/catalog'
 import { describeAdminError } from '@/lib/admin/errors'
+import { listMovements, reasonLabel, MOVEMENT_LIMIT, type MovementRow, type StockResult } from '@/lib/admin/inventory'
+import { confirmAdjustment } from '@/lib/admin/stockFlow'
+import { StockAdjustDialog } from './StockAdjustDialog'
 import {
   ConditionEditor, GradesManager, PlanEditor, toDraft, draftToPatch,
   conditionDraftFrom, conditionChanged, planDraftFrom, planChanged,
@@ -126,6 +130,15 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
   const [rowBusy, setRowBusy] = useState(false)
   const [rowError, setRowError] = useState<string | null>(null)
   const [confirm, setConfirm] = useState<Confirm | null>(null)
+  // Stock is never part of "Save changes": it moves only through the Adjust
+  // stock dialog, one audited admin_set_stock() call at a time.
+  const [movements, setMovements] = useState<(MovementRow & { actorName: string | null })[]>([])
+  const [movementsError, setMovementsError] = useState<string | null>(null)
+  const [adjusting, setAdjusting] = useState<{ variantId: string | null; label: string; current: number } | null>(null)
+  // After an ACCEPTED adjustment: the confirmation, and a refresh problem kept
+  // apart from rowError so it can never read as the change being refused.
+  const [stockNotice, setStockNotice] = useState<string | null>(null)
+  const [refreshError, setRefreshError] = useState<string | null>(null)
 
   // The parent mounts this component with key={productId}, so a different
   // product gets a fresh instance and the initial state above is already the
@@ -155,12 +168,17 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
         setForm(formFrom(d.product))
         setVariants(d.variants.map((v) => ({
           id: v.id, legacyKey: v.legacy_key, name: v.name, color: v.color,
-          color_code: v.color_code, storage: v.storage, stock: v.stock, sort_order: v.sort_order,
+          color_code: v.color_code, storage: v.storage, sort_order: v.sort_order,
         })))
         setSpecs(d.specs.map((s) => ({ id: s.id, label: s.label, value: s.value })))
         setImages(d.images.map((i) => ({ id: i.id, path: i.path, alt: i.alt ?? '', position: i.position, variant_id: i.variant_id })))
       })
       .catch((err) => { if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Could not load this product.') })
+
+    // Stock history is reported in its own section; a failure never blocks editing.
+    listMovements(productId)
+      .then((rows) => { if (!cancelled) setMovements(rows) })
+      .catch((err) => { if (!cancelled) setMovementsError(describeAdminError(err, 'Could not load stock history.')) })
 
     return () => { cancelled = true }
   }, [productId])
@@ -176,11 +194,56 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
     setDetail(fresh)
     setVariants(fresh.variants.map((v) => ({
       id: v.id, legacyKey: v.legacy_key, name: v.name, color: v.color,
-      color_code: v.color_code, storage: v.storage, stock: v.stock, sort_order: v.sort_order,
+      color_code: v.color_code, storage: v.storage, sort_order: v.sort_order,
     })))
     setSpecs(fresh.specs.map((sp) => ({ id: sp.id, label: sp.label, value: sp.value })))
     setImages(fresh.images.map((i) => ({ id: i.id, path: i.path, alt: i.alt ?? '', position: i.position, variant_id: i.variant_id })))
     await reloadExtras()
+    await reloadMovements()
+  }
+
+  /**
+   * The database accepted a stock change. Show the new figure at once (so the
+   * screen is right even if the refresh fails), confirm it, then re-read.
+   *
+   * Like every immediate row action here, the refresh re-reads variants,
+   * specs and images, so unsaved edits in those sections are replaced by what
+   * is saved. Product details and condition/warranty drafts are kept.
+   */
+  async function handleAdjusted(result: StockResult, variantId: string | null) {
+    setAdjusting(null)
+    setRowError(null)
+    setDetail((prev) => prev && (variantId === null
+      ? { ...prev, product: { ...prev.product, stock: result.current_quantity } }
+      : { ...prev, variants: prev.variants.map((v) => v.id === variantId ? { ...v, stock: result.current_quantity } : v) }))
+    setRowBusy(true)
+    const outcome = await confirmAdjustment(result, async () => { await reload(); onSaved() },
+      (err) => describeAdminError(err, 'Could not reload the product.'))
+    setRowBusy(false)
+    setStockNotice(outcome.notice)
+    setRefreshError(outcome.refreshError)
+  }
+
+  async function retryRefresh() {
+    setRowBusy(true)
+    try {
+      await reload()
+      onSaved()
+      setRefreshError(null)
+    } catch (err) {
+      setRefreshError(`This screen could not refresh: ${describeAdminError(err, 'Could not reload the product.')}`)
+    } finally {
+      setRowBusy(false)
+    }
+  }
+
+  async function reloadMovements() {
+    try {
+      setMovements(await listMovements(productId))
+      setMovementsError(null)
+    } catch (err) {
+      setMovementsError(describeAdminError(err, 'Could not load stock history.'))
+    }
   }
 
   /**
@@ -346,12 +409,13 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
         const changed =
           before.name !== variant.name || before.color !== variant.color ||
           before.color_code !== variant.color_code || before.storage !== variant.storage ||
-          before.stock !== variant.stock || before.sort_order !== variant.sort_order
+          before.sort_order !== variant.sort_order
         if (!changed) continue
-        // legacy_key is never sent — cart and wishlist identity depends on it.
+        // legacy_key and stock are never sent — cart identity depends on the
+        // key, and stock changes only through Adjust stock.
         await updateVariant(variant.id, {
           name: variant.name, color: variant.color, color_code: variant.color_code,
-          storage: variant.storage, stock: variant.stock, sort_order: variant.sort_order,
+          storage: variant.storage, sort_order: variant.sort_order,
         })
       }
 
@@ -383,6 +447,24 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
   const legacy = detail && hasVariants ? legacyCondition(detail.product) : null
   const productPlan = planRows.find((r) => r.variant_id === null)
   const noun = warrantyNoun({ subcategory: form?.subcategory ?? '' })
+
+  // Stock as recorded, and what the database will refuse to delete: anything
+  // holding stock, and anything with stock history (the ledger keeps it).
+  const productStock = detail?.product.stock ?? 0
+  const variantRows = detail?.variants ?? []
+  const sharedVariants = variantRows.filter((v) => v.stock === null).length
+  const variantsWithHistory = new Set(movements.map((m) => m.variant_id).filter(Boolean))
+  const productDeleteBlock =
+    productStock > 0 ? `It still has ${productStock} in stock. Set its stock to 0 first, or unpublish it.`
+    : variantRows.some((v) => (v.stock ?? 0) > 0) ? 'A variant still has stock. Set it to 0 first, or unpublish the product.'
+    : movements.length > 0 ? 'It has stock history, which is kept permanently. Unpublish it instead.'
+    : null
+  function variantDeleteBlock(variantId: string): string | null {
+    const stock = variantRows.find((v) => v.id === variantId)?.stock ?? null
+    if (stock !== null && stock > 0) return 'Has stock — adjust it to 0 first.'
+    if (variantsWithHistory.has(variantId)) return 'Has stock history — kept for the record. Retiring variants comes in a later update.'
+    return null
+  }
 
   /** One plan's editor: the product default or a variant override. */
   function renderPlan(row: WarrantyPlanRow, idPrefix: string) {
@@ -494,6 +576,83 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
                 </div>
               </EditorSection>
 
+              <EditorSection title="Stock"
+                description="Stock changes only through Adjust stock. Every change is recorded with who made it, the reason and a note, and cannot be edited later.">
+                <div className="grid gap-3">
+                  <div className="flex flex-wrap items-end gap-4">
+                    <div>
+                      <p className="text-[12px] text-muted-foreground">{hasVariants ? 'Product stock' : 'In stock'}</p>
+                      <p className="text-2xl font-bold tabular-nums tracking-tight text-foreground">{productStock}</p>
+                    </div>
+                    {canEdit && (
+                      <Button type="button" variant="outline" size="sm" disabled={rowBusy}
+                        onClick={() => setAdjusting({ variantId: null, label: detail.product.name, current: productStock })}>
+                        Adjust stock
+                      </Button>
+                    )}
+                  </div>
+                  {hasVariants && (
+                    <p className="text-[12.5px] leading-snug text-muted-foreground">
+                      {sharedVariants === variantRows.length
+                        ? `All ${variantRows.length} variants share this stock.`
+                        : sharedVariants === 0
+                          ? 'Every variant has its own stock (shown in its card), so checkout does not use this product figure.'
+                          : `${sharedVariants} of ${variantRows.length} variants share this stock; the others have their own, shown in their cards.`}
+                    </p>
+                  )}
+
+                  {stockNotice && (
+                    <p role="status" className="flex items-center gap-1.5 text-[12.5px] font-semibold text-primary">
+                      <Check size={14} className="shrink-0" /> {stockNotice}
+                    </p>
+                  )}
+                  {refreshError && (
+                    <div className="flex flex-wrap items-start gap-2.5 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2.5">
+                      <AlertCircle size={15} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                      <p className="min-w-0 flex-1 text-[12.5px] text-foreground">{refreshError}</p>
+                      <Button type="button" variant="outline" size="sm" disabled={rowBusy} onClick={() => void retryRefresh()}>
+                        Refresh
+                      </Button>
+                    </div>
+                  )}
+
+                  {movementsError && <p className="text-[12px] text-red-500">{movementsError}</p>}
+                  {movements.length > 0 && (
+                    <div className="rounded-xl border border-mint/70 dark:border-border">
+                      <p className="border-b border-mint/70 dark:border-border px-3 py-2 text-[12px] font-semibold text-foreground">
+                        Stock history
+                        {movements.length > 30 && (
+                          <span className="font-normal text-muted-foreground">
+                            {' '}· latest 30 shown{movements.length >= MOVEMENT_LIMIT ? `; only the latest ${MOVEMENT_LIMIT} are loaded here, older history is kept in full` : ''}
+                          </span>
+                        )}
+                      </p>
+                      <ul className="max-h-60 divide-y divide-mint/60 dark:divide-border overflow-y-auto">
+                        {movements.slice(0, 30).map((m) => (
+                          <li key={m.id} className="px-3 py-2 text-[12px] leading-snug">
+                            <p className="text-foreground">
+                              <span className={cn('font-semibold tabular-nums', m.delta > 0 ? 'text-primary' : 'text-red-500')}>
+                                {m.delta > 0 ? '+' : ''}{m.delta}
+                              </span>
+                              {m.quantity_before != null && m.quantity_after != null && (
+                                <span className="tabular-nums text-muted-foreground"> ({m.quantity_before} → {m.quantity_after})</span>
+                              )}
+                              {' · '}{reasonLabel(m.reason)}
+                              {' · '}{m.variant_id ? (variantRows.find((v) => v.id === m.variant_id)?.name ?? 'Variant') : 'Product'}
+                            </p>
+                            <p className="text-muted-foreground">
+                              {new Date(m.created_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}
+                              {m.actorName ? ` · ${m.actorName}` : ''}
+                              {m.note ? ` · ${m.note}` : ''}
+                            </p>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </EditorSection>
+
               <EditorSection title="Condition"
                 description={hasVariants
                   ? 'Each variant has its own condition — set it in the variant cards below. Changing one variant never changes another, and a variant with no condition set is Brand New.'
@@ -573,10 +732,17 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
                             {variant.legacyKey ?? '—'}
                           </span>
                           <Lock size={12} className="text-muted-foreground" />
-                          <button type="button" disabled={disabled || rowBusy}
+                          {canEdit && variantDeleteBlock(variant.id) && (
+                            <span className="ml-auto text-right text-[11px] leading-tight text-muted-foreground">
+                              {variantDeleteBlock(variant.id)}
+                            </span>
+                          )}
+                          <button type="button" disabled={disabled || rowBusy || variantDeleteBlock(variant.id) !== null}
                             aria-label={`Remove variant ${variant.name}`}
+                            title={variantDeleteBlock(variant.id) ?? undefined}
                             onClick={() => setConfirm({ kind: 'variant', id: variant.id, label: variant.name })}
-                            className="focus-ring ml-auto flex h-8 w-8 items-center justify-center rounded-xl text-muted-foreground transition hover:bg-red-500/8 hover:text-red-500 active:scale-95 disabled:opacity-40">
+                            className={cn('focus-ring flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition hover:bg-red-500/8 hover:text-red-500 active:scale-95 disabled:opacity-40',
+                              canEdit && variantDeleteBlock(variant.id) ? 'ml-1' : 'ml-auto')}>
                             <Trash2 size={14} />
                           </button>
                         </div>
@@ -592,8 +758,28 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
                               onChange={(v) => setVariants((p) => p.map((x, i) => i === index ? { ...x, storage: v || null } : x))} />
                           </div>
                           <div className="grid sm:grid-cols-2 gap-3">
-                            <NumberField id={`v-stock-${variant.id}`} label="Stock" min={0} value={variant.stock} disabled={disabled}
-                              hint="blank inherits the product" onChange={(v) => setVariants((p) => p.map((x, i) => i === index ? { ...x, stock: v } : x))} />
+                            {(() => {
+                              const own = variantRows.find((v) => v.id === variant.id)?.stock ?? null
+                              return (
+                                <div>
+                                  <span className="mb-1.5 block text-[13px] font-semibold text-foreground">Stock</span>
+                                  <div className="flex min-h-[42px] items-center gap-2 rounded-xl border border-dashed border-mint-deep dark:border-border px-3 py-2">
+                                    <span className="flex-1 text-[13px] text-foreground">
+                                      {own === null
+                                        ? <>Shares product stock <span className="tabular-nums text-muted-foreground">({productStock})</span></>
+                                        : <>Own stock: <strong className="tabular-nums">{own}</strong></>}
+                                    </span>
+                                    {canEdit && own !== null && (
+                                      <button type="button" disabled={rowBusy}
+                                        onClick={() => setAdjusting({ variantId: variant.id, label: variant.name, current: own })}
+                                        className="focus-ring rounded-full text-[12px] font-semibold text-primary disabled:opacity-50">
+                                        Adjust
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              )
+                            })()}
                             <NumberField id={`v-sort-${variant.id}`} label="Order" min={0} value={variant.sort_order} disabled={disabled}
                               onChange={(v) => setVariants((p) => p.map((x, i) => i === index ? { ...x, sort_order: v ?? 0 } : x))} />
                           </div>
@@ -673,7 +859,7 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
                         onClick={() => void runRowAction(async () => {
                           await addVariant(
                             productId,
-                            { name: newVariantName, color: null, color_code: null, storage: null, stock: null },
+                            { name: newVariantName, color: null, color_code: null, storage: null },
                             detail.variants,
                           )
                           setNewVariantName('')
@@ -850,8 +1036,11 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
 
               {canEdit && (
                 <EditorSection title="Danger zone"
-                  description="A product that has ever been ordered is unpublished, never deleted — that is what keeps past orders readable.">
-                  <Button type="button" variant="outline" disabled={rowBusy}
+                  description="A product that has ever been ordered, holds stock or has stock history is unpublished, never deleted — that is what keeps past orders and the stock record readable.">
+                  {productDeleteBlock && (
+                    <p className="mb-2.5 text-[12.5px] leading-snug text-muted-foreground">{productDeleteBlock}</p>
+                  )}
+                  <Button type="button" variant="outline" disabled={rowBusy || productDeleteBlock !== null}
                     className="border-red-500/40 text-red-500 hover:bg-red-500/8"
                     onClick={() => void (async () => {
                       setRowError(null)
@@ -877,12 +1066,23 @@ export function ProductEditor({ productId, categories, canEdit, onClose, onSaved
               <div className="flex items-start gap-2.5 rounded-2xl border border-mint/70 dark:border-border bg-muted px-4 py-3">
                 <Info size={15} className="mt-0.5 shrink-0 text-muted-foreground" />
                 <p className="text-[12.5px] leading-snug text-muted-foreground">
-                  Prices and stock movements are not editable here. Each has its own page and its own audited database function.
+                  Prices are set on the Pricing screen. Stock changes only through Adjust stock above. Both go through audited database functions.
                 </p>
               </div>
             </>
           )}
         </div>
+
+        {adjusting && detail && (
+          <StockAdjustDialog
+            productId={detail.product.id}
+            variantId={adjusting.variantId}
+            label={adjusting.label}
+            current={adjusting.current}
+            onClose={() => setAdjusting(null)}
+            onDone={(result) => void handleAdjusted(result, adjusting.variantId)}
+          />
+        )}
 
         {confirm && (
           <div className="absolute inset-0 z-10 flex items-center justify-center px-5">

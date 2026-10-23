@@ -1,5 +1,8 @@
 import { getSupabaseClient } from '@/lib/supabase/client'
 import { setPrice } from './pricing'
+import { setStock, newRequestId, isStockFunctionMissing, describeStockError, wasStockRequestRecorded } from './inventory'
+import { resolveRequestOutcome } from './stockFlow'
+import { describeAdminError } from './errors'
 import type { Database } from '@/lib/supabase/database.types'
 import type { ProductSubcategory } from '@/types'
 import type { AdminRole } from './roles'
@@ -112,13 +115,15 @@ export interface ProductPatch {
  * triggers, for app builds already installed, and are never written here.
  */
 
-/** Variant fields an admin may edit. legacy_key is NOT among them. */
+/**
+ * Variant fields an admin may edit. legacy_key is NOT among them, and neither
+ * is stock: it changes only through admin_set_stock() (lib/admin/inventory.ts).
+ */
 export interface VariantPatch {
   name: string
   color: string | null
   color_code: string | null
   storage: string | null
-  stock: number | null
   sort_order: number
 }
 
@@ -217,8 +222,9 @@ export async function loadProductDetail(id: string): Promise<AdminProductDetail>
 // ---------------------------------------------------------------------------
 // Writes
 // ---------------------------------------------------------------------------
-// None of these touch product_prices or inventory_movements. Pricing has its own
-// RPC (admin_set_price) and its own phase; stock movement has its own phase.
+// None of these touch product_prices, inventory_movements or a stock column.
+// Prices change through admin_set_price() and stock through admin_set_stock();
+// the database refuses direct writes to either.
 // `products.id` and `product_variants.legacy_key` are never written, which is
 // what keeps static routes and saved cart/wishlist entries resolvable.
 // ---------------------------------------------------------------------------
@@ -472,6 +478,12 @@ export async function countProductsByCategory(): Promise<Map<string, number>> {
 //   4. If any step fails, the draft is removed and the original error is
 //      reported. If even the cleanup fails, the caller is told the id of the
 //      unpublished draft rather than being left to wonder.
+//   5. Stock starts at zero (the stock guard refuses anything else on insert)
+//      and variants share the product's stock. Opening stock is recorded last,
+//      through admin_set_stock() as an opening_balance, just before publishing.
+//      From that point the product has ledger history and can no longer be
+//      deleted, so a later failure leaves it UNPUBLISHED rather than removing
+//      it.
 //
 // A SECURITY DEFINER RPC would give a true all-or-nothing transaction and is
 // the right eventual home for this, but it needs a migration applied to the
@@ -484,7 +496,6 @@ export interface NewVariantInput {
   color: string | null
   color_code: string | null
   storage: string | null
-  stock: number | null
   /** Whole rupees, or null to leave the tier unpriced. */
   retailRupees: number | null
   vipRupees: number | null
@@ -499,7 +510,8 @@ export interface NewProductInput {
   subcategory: string
   model: string | null
   description: string
-  stock: number
+  /** Recorded as an opening_balance once everything else has been written. 0 = none. */
+  openingStock: number
   lifecycle_status: string | null
   is_new: boolean
   /**
@@ -528,7 +540,17 @@ export interface CreateProductResult {
   published: boolean
   /** Set when publishing was requested but withheld, with the reason. */
   withheld: string | null
+  /** Set when opening stock could not be recorded yet (database not updated). */
+  stockPending: string | null
 }
+
+/**
+ * Thrown when creation did not fully succeed but the product was KEPT, as an
+ * unpublished draft: it has stock history, its opening stock could not be
+ * confirmed, or the database refused to remove it. The caller should refresh
+ * the product list so the admin can find it.
+ */
+export class ProductKeptError extends Error {}
 
 /** Variant ids the rest of the app uses: v1, v2, v3 … See product_variants.legacy_key. */
 function legacyKeyFor(index: number): string {
@@ -545,7 +567,7 @@ export async function createProduct(input: NewProductInput): Promise<CreateProdu
     subcategory: input.subcategory,
     model: input.model,
     description: input.description,
-    stock: input.stock,
+    // No stock column: it defaults to 0, the only value the stock guard accepts.
     lifecycle_status: input.lifecycle_status,
     is_new: input.is_new,
     warranty_text: input.warranty_text,
@@ -558,6 +580,9 @@ export async function createProduct(input: NewProductInput): Promise<CreateProdu
   })
   if (productError) throw productError
 
+  // Set once opening stock is in the ledger: the draft must then be kept.
+  let stockRecorded = false
+
   try {
     if (input.variants.length > 0) {
       const { error } = await supabase.from('product_variants').insert(
@@ -568,7 +593,7 @@ export async function createProduct(input: NewProductInput): Promise<CreateProdu
           color: variant.color,
           color_code: variant.color_code,
           storage: variant.storage,
-          stock: variant.stock,
+          // No stock column: NULL = shares the product's stock.
           sort_order: index,
         })),
       )
@@ -678,29 +703,85 @@ export async function createProduct(input: NewProductInput): Promise<CreateProdu
       }
     }
 
+    // Opening stock: last write before publishing, so every earlier failure can
+    // still remove a draft that has no stock history.
+    let stockPending: string | null = null
+    if (input.openingStock > 0) {
+      // One id for this attempt: it is how the ledger is asked afterwards
+      // whether this exact request was applied.
+      const requestId = newRequestId()
+      try {
+        await setStock({
+          productId: input.id,
+          variantId: null,
+          expected: 0,
+          next: input.openingStock,
+          reason: 'opening_balance',
+          note: 'Opening stock recorded when the product was created',
+          requestId,
+        })
+        stockRecorded = true
+      } catch (err) {
+        if (isStockFunctionMissing(err)) {
+          // A database without admin_set_stock() yet: keep the product at zero
+          // stock and say so. Never fall back to writing stock directly.
+          stockPending = `Opening stock of ${input.openingStock} was not recorded: stock adjustments become available after the next server update. Stock is 0 until then.`
+        } else {
+          // The request may have been applied even though no answer arrived
+          // (a lost response). Ask the ledger before deciding anything.
+          const outcome = await resolveRequestOutcome(() => wasStockRequestRecorded(requestId))
+          if (outcome === 'uncertain') {
+            throw new ProductKeptError(
+              `Could not confirm whether the opening stock of ${input.openingStock} was recorded for "${input.id}" ` +
+              `(${describeStockError(err)}). The product was kept UNPUBLISHED so nothing is lost. ` +
+              'Open it from the products list and check its stock history before publishing.',
+            )
+          }
+          if (outcome === 'not_recorded') throw err   // nothing applied: the draft can be removed
+          stockRecorded = true                         // applied; only the answer was lost
+        }
+      }
+    }
+
     if (input.publish && !retailPriced) {
       return {
         id: input.id,
         published: false,
         withheld: 'Saved as a draft: a product needs a retail price before customers can see it.',
+        stockPending,
       }
     }
 
     if (input.publish) {
       await setProductActive(input.id, true)
-      return { id: input.id, published: true, withheld: null }
+      return { id: input.id, published: true, withheld: null, stockPending }
     }
 
-    return { id: input.id, published: false, withheld: null }
+    return { id: input.id, published: false, withheld: null, stockPending }
   } catch (err) {
+    // Already decided: the product is kept.
+    if (err instanceof ProductKeptError) throw err
+
+    if (stockRecorded) {
+      // Opening stock is in the ledger, which must never lose history: keep
+      // the product, unpublished, rather than attempting a delete.
+      throw new ProductKeptError(
+        `Publishing failed: ${describeAdminError(err, 'the database refused the change.')} ` +
+        `"${input.id}" was saved UNPUBLISHED with its opening stock of ${input.openingStock} recorded. ` +
+        'Open it from the products list to publish it.',
+      )
+    }
+
     // Roll the draft back. Children and price rows go with it through the
     // ON DELETE CASCADE declared on every child table.
     const { error: cleanupError } = await supabase.from('products').delete().eq('id', input.id)
     if (cleanupError) {
-      throw new Error(
-        `${err instanceof Error ? err.message : 'The database refused part of the product.'} ` +
+      // The database refused the delete (for example, stock arrived after
+      // all). The draft stays; it is never forced.
+      throw new ProductKeptError(
+        `${describeAdminError(err, 'The database refused part of the product.')} ` +
         `The unpublished draft "${input.id}" could not be removed automatically — ` +
-        'open it from the products list to finish or delete it.',
+        'open it from the products list to review it.',
       )
     }
     throw err
@@ -713,7 +794,7 @@ export async function createProduct(input: NewProductInput): Promise<CreateProdu
 
 export async function addVariant(
   productId: string,
-  input: { name: string; color: string | null; color_code: string | null; storage: string | null; stock: number | null },
+  input: { name: string; color: string | null; color_code: string | null; storage: string | null },
   existing: VariantRow[],
 ): Promise<VariantRow> {
   // Continue the v1, v2, v3 … sequence without ever reusing a retired key: a
@@ -731,7 +812,8 @@ export async function addVariant(
       color: input.color,
       color_code: input.color_code,
       storage: input.storage,
-      stock: input.stock,
+      // No stock column: a new variant shares its product's stock (P1 does not
+      // switch variants between shared and own stock).
       sort_order: existing.length,
     })
     .select()
@@ -880,7 +962,8 @@ export async function deleteProduct(productId: string): Promise<DeleteOutcome> {
   }
 
   const { error } = await getSupabaseClient().from('products').delete().eq('id', productId)
-  if (error) return { ok: false, reason: error.message }
+  // Stock on hand or stock history refuses the delete in the database.
+  if (error) return { ok: false, reason: describeStockError(error) }
   return { ok: true }
 }
 

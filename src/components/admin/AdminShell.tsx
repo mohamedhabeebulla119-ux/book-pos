@@ -69,6 +69,15 @@ function BrandMark() {
   )
 }
 
+/** The installed app version (next.config.ts env), so staff can confirm their APK. */
+function AppVersion() {
+  return (
+    <p className="mt-1 text-[11px] font-medium tabular-nums text-muted-foreground/80">
+      Apple Expert admin v{process.env.APP_VERSION}
+    </p>
+  )
+}
+
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const { theme, toggleTheme } = useTheme()
@@ -99,6 +108,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           <p className="text-[11px] text-muted-foreground leading-relaxed">
             Access is enforced by the database, not this interface.
           </p>
+          <AppVersion />
         </div>
       </aside>
 
@@ -125,6 +135,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             </div>
             <div className="flex-1 overflow-y-auto px-3 py-4">
               <SidebarNav onNavigate={() => setDrawerOpen(false)} />
+            </div>
+            <div className="px-5 py-3 border-t border-mint/70 dark:border-border">
+              <AppVersion />
             </div>
           </div>
         </div>

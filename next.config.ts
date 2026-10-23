@@ -1,5 +1,10 @@
 import type { NextConfig } from "next";
 import os from "os";
+import { readFileSync } from "fs";
+
+// The app version shown in the admin panel, so staff can confirm which APK they
+// installed. Kept equal to android/app/build.gradle versionName.
+const appVersion: string = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")).version;
 
 // Dynamically allow LAN IP addresses for Next.js 15+ HMR over local network
 const getLocalIPs = () => {
@@ -20,6 +25,7 @@ const getLocalIPs = () => {
 
 const nextConfig: NextConfig = { output: "export", images: { unoptimized: true },
   allowedDevOrigins: getLocalIPs(),
+  env: { APP_VERSION: appVersion },
 };
 
 export default nextConfig;
