@@ -232,6 +232,7 @@ export type Database = {
           is_active: boolean
           name: string
           parent_id: string | null
+          requires_serial: boolean
           slug: string
           sort_order: number
           subtitle: string | null
@@ -247,6 +248,7 @@ export type Database = {
           is_active?: boolean
           name: string
           parent_id?: string | null
+          requires_serial?: boolean
           slug: string
           sort_order?: number
           subtitle?: string | null
@@ -262,6 +264,7 @@ export type Database = {
           is_active?: boolean
           name?: string
           parent_id?: string | null
+          requires_serial?: boolean
           slug?: string
           sort_order?: number
           subtitle?: string | null
@@ -381,15 +384,125 @@ export type Database = {
           },
         ]
       }
+      grn_lines: {
+        Row: {
+          grn_id: string
+          id: string
+          line_no: number
+          product_id: string
+          product_name_snapshot: string
+          quantity: number
+          unit_cost_cents: number
+          variant_id: string | null
+          variant_label_snapshot: string | null
+        }
+        Insert: {
+          grn_id: string
+          id?: string
+          line_no: number
+          product_id: string
+          product_name_snapshot: string
+          quantity: number
+          unit_cost_cents?: number
+          variant_id?: string | null
+          variant_label_snapshot?: string | null
+        }
+        Update: {
+          grn_id?: string
+          id?: string
+          line_no?: number
+          product_id?: string
+          product_name_snapshot?: string
+          quantity?: number
+          unit_cost_cents?: number
+          variant_id?: string | null
+          variant_label_snapshot?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grn_lines_grn_id_fkey"
+            columns: ["grn_id"]
+            isOneToOne: false
+            referencedRelation: "grns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grn_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grn_lines_variant_fk"
+            columns: ["variant_id", "product_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id", "product_id"]
+          },
+        ]
+      }
+      grns: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          grn_number: string
+          id: string
+          note: string | null
+          received_on: string
+          request_id: string
+          supplier_invoice: string | null
+          supplier_name: string
+          total_cost_cents: number
+          total_units: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          grn_number: string
+          id?: string
+          note?: string | null
+          received_on: string
+          request_id: string
+          supplier_invoice?: string | null
+          supplier_name: string
+          total_cost_cents?: number
+          total_units: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          grn_number?: string
+          id?: string
+          note?: string | null
+          received_on?: string
+          request_id?: string
+          supplier_invoice?: string | null
+          supplier_name?: string
+          total_cost_cents?: number
+          total_units?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grns_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_movements: {
         Row: {
           actor_id: string | null
           created_at: string
           delta: number
           entry_seq: number
+          grn_id: string | null
           id: string
           note: string | null
           order_id: string | null
+          pos_sale_id: string | null
           product_id: string
           quantity_after: number | null
           quantity_before: number | null
@@ -403,9 +516,11 @@ export type Database = {
           created_at?: string
           delta: number
           entry_seq?: never
+          grn_id?: string | null
           id?: string
           note?: string | null
           order_id?: string | null
+          pos_sale_id?: string | null
           product_id: string
           quantity_after?: number | null
           quantity_before?: number | null
@@ -419,9 +534,11 @@ export type Database = {
           created_at?: string
           delta?: number
           entry_seq?: never
+          grn_id?: string | null
           id?: string
           note?: string | null
           order_id?: string | null
+          pos_sale_id?: string | null
           product_id?: string
           quantity_after?: number | null
           quantity_before?: number | null
@@ -439,10 +556,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "inventory_movements_grn_id_fkey"
+            columns: ["grn_id"]
+            isOneToOne: false
+            referencedRelation: "grns"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "inventory_movements_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_pos_sale_id_fkey"
+            columns: ["pos_sale_id"]
+            isOneToOne: false
+            referencedRelation: "pos_sales"
             referencedColumns: ["id"]
           },
           {
@@ -458,6 +589,116 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "product_variants"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_units: {
+        Row: {
+          barcode: string
+          created_at: string
+          fifo_seq: number
+          grn_id: string
+          grn_line_id: string
+          id: string
+          order_id: string | null
+          order_item_id: string | null
+          pos_sale_id: string | null
+          product_id: string
+          received_on: string
+          serial_number: string | null
+          status: string
+          status_changed_at: string
+          status_note: string | null
+          unit_cost_cents: number
+          variant_id: string | null
+        }
+        Insert: {
+          barcode: string
+          created_at?: string
+          fifo_seq?: never
+          grn_id: string
+          grn_line_id: string
+          id?: string
+          order_id?: string | null
+          order_item_id?: string | null
+          pos_sale_id?: string | null
+          product_id: string
+          received_on: string
+          serial_number?: string | null
+          status?: string
+          status_changed_at?: string
+          status_note?: string | null
+          unit_cost_cents?: number
+          variant_id?: string | null
+        }
+        Update: {
+          barcode?: string
+          created_at?: string
+          fifo_seq?: never
+          grn_id?: string
+          grn_line_id?: string
+          id?: string
+          order_id?: string | null
+          order_item_id?: string | null
+          pos_sale_id?: string | null
+          product_id?: string
+          received_on?: string
+          serial_number?: string | null
+          status?: string
+          status_changed_at?: string
+          status_note?: string | null
+          unit_cost_cents?: number
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_units_grn_id_fkey"
+            columns: ["grn_id"]
+            isOneToOne: false
+            referencedRelation: "grns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_units_grn_line_id_fkey"
+            columns: ["grn_line_id"]
+            isOneToOne: false
+            referencedRelation: "grn_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_units_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_units_order_item_id_fkey"
+            columns: ["order_item_id"]
+            isOneToOne: false
+            referencedRelation: "order_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_units_pos_sale_id_fkey"
+            columns: ["pos_sale_id"]
+            isOneToOne: false
+            referencedRelation: "pos_sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_units_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_units_variant_fk"
+            columns: ["variant_id", "product_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id", "product_id"]
           },
         ]
       }
@@ -632,6 +873,7 @@ export type Database = {
           profile_id: string
           shipping_address: Json | null
           status: string
+          stock_state: string | null
           subtotal_cents: number
           total_cents: number
           updated_at: string
@@ -649,6 +891,7 @@ export type Database = {
           profile_id: string
           shipping_address?: Json | null
           status?: string
+          stock_state?: string | null
           subtotal_cents?: number
           total_cents?: number
           updated_at?: string
@@ -666,6 +909,7 @@ export type Database = {
           profile_id?: string
           shipping_address?: Json | null
           status?: string
+          stock_state?: string | null
           subtotal_cents?: number
           total_cents?: number
           updated_at?: string
@@ -727,6 +971,150 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pos_sale_items: {
+        Row: {
+          barcode_snapshot: string
+          id: string
+          pos_sale_id: string
+          price_id: string | null
+          product_id: string | null
+          product_name_snapshot: string
+          return_note: string | null
+          returned_at: string | null
+          serial_snapshot: string | null
+          unit_id: string
+          unit_price_cents: number
+          variant_id: string | null
+          variant_label_snapshot: string | null
+        }
+        Insert: {
+          barcode_snapshot: string
+          id?: string
+          pos_sale_id: string
+          price_id?: string | null
+          product_id?: string | null
+          product_name_snapshot: string
+          return_note?: string | null
+          returned_at?: string | null
+          serial_snapshot?: string | null
+          unit_id: string
+          unit_price_cents: number
+          variant_id?: string | null
+          variant_label_snapshot?: string | null
+        }
+        Update: {
+          barcode_snapshot?: string
+          id?: string
+          pos_sale_id?: string
+          price_id?: string | null
+          product_id?: string | null
+          product_name_snapshot?: string
+          return_note?: string | null
+          returned_at?: string | null
+          serial_snapshot?: string | null
+          unit_id?: string
+          unit_price_cents?: number
+          variant_id?: string | null
+          variant_label_snapshot?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_sale_items_pos_sale_id_fkey"
+            columns: ["pos_sale_id"]
+            isOneToOne: false
+            referencedRelation: "pos_sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_sale_items_price_id_fkey"
+            columns: ["price_id"]
+            isOneToOne: false
+            referencedRelation: "my_prices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_sale_items_price_id_fkey"
+            columns: ["price_id"]
+            isOneToOne: false
+            referencedRelation: "product_prices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_sale_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_sale_items_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_sale_items_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pos_sales: {
+        Row: {
+          bill_number: string
+          cashier_id: string | null
+          created_at: string
+          customer_name: string | null
+          customer_phone: string | null
+          discount_cents: number
+          id: string
+          note: string | null
+          payment_method: string
+          request_id: string
+          subtotal_cents: number
+          total_cents: number
+        }
+        Insert: {
+          bill_number: string
+          cashier_id?: string | null
+          created_at?: string
+          customer_name?: string | null
+          customer_phone?: string | null
+          discount_cents?: number
+          id?: string
+          note?: string | null
+          payment_method: string
+          request_id: string
+          subtotal_cents: number
+          total_cents: number
+        }
+        Update: {
+          bill_number?: string
+          cashier_id?: string | null
+          created_at?: string
+          customer_name?: string | null
+          customer_phone?: string | null
+          discount_cents?: number
+          id?: string
+          note?: string | null
+          payment_method?: string
+          request_id?: string
+          subtotal_cents?: number
+          total_cents?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_sales_cashier_id_fkey"
+            columns: ["cashier_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1720,6 +2108,21 @@ export type Database = {
       }
     }
     Functions: {
+      admin_post_grn: {
+        Args: {
+          p_lines: Json
+          p_note: string
+          p_received_on: string
+          p_request_id: string
+          p_supplier_invoice: string
+          p_supplier_name: string
+        }
+        Returns: Json
+      }
+      admin_return_pos_unit: {
+        Args: { p_note: string; p_unit_id: string }
+        Returns: Json
+      }
       admin_review_wholesale_request: {
         Args: { p_note?: string; p_request_id: string; p_status: string }
         Returns: {
@@ -1817,6 +2220,18 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_unit_stock_summary: {
+        Args: never
+        Returns: {
+          in_stock: number
+          oldest_received_on: string
+          product_id: string
+          reserved: number
+          sold: number
+          variant_id: string
+          written_off: number
+        }[]
+      }
       admin_update_wholesale_request: {
         Args: { p_admin_notes?: string; p_fields?: Json; p_request_id: string }
         Returns: {
@@ -1846,6 +2261,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      admin_write_off_units: {
+        Args: { p_note: string; p_reason: string; p_unit_ids: string[] }
+        Returns: Json
       }
       customer_save_wholesale_application: {
         Args: { p_action: string; p_fields: Json }
@@ -1878,6 +2297,19 @@ export type Database = {
         }
       }
       place_order: { Args: { p_lines: Json; p_notes?: string }; Returns: Json }
+      pos_create_sale: {
+        Args: {
+          p_codes: string[]
+          p_customer_name: string
+          p_customer_phone: string
+          p_discount_cents: number
+          p_note: string
+          p_payment_method: string
+          p_request_id: string
+        }
+        Returns: Json
+      }
+      pos_lookup_unit: { Args: { p_code: string }; Returns: Json }
     }
     Enums: {
       [_ in never]: never

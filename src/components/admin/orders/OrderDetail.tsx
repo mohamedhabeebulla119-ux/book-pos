@@ -18,6 +18,7 @@ import {
   isOrderStatus, type AdminOrderDetail, type OrderStatus,
 } from '@/lib/admin/orders'
 import type { AdminRole } from '@/lib/admin/roles'
+import { OrderUnits } from './OrderUnits'
 
 type Save =
   | { kind: 'idle' }
@@ -246,6 +247,8 @@ export function OrderDetail({
                   ))}
                 </ul>
               </Section>
+
+              <OrderUnits orderId={detail.order.id} version={detail.order.status} />
 
               <Section icon={ShieldCheck} title="Totals"
                 note="Stored with the order. Never recalculated from current prices.">

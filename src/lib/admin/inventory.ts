@@ -175,6 +175,7 @@ export function describeStockError(err: unknown): string {
     case 'inventory_history_exists': return `Cannot delete — ${detail}. Unpublish it instead.`
     case 'stock_locked':
     case 'stock_mode_locked': return 'Stock can only be changed with Adjust stock.'
+    case 'unit_tracked': return 'This item is tracked by barcode. Add stock with a GRN, and remove it by selling or writing off units (Inventory).'
     default: return describeAdminError(err, 'The database refused the stock change.')
   }
 }
