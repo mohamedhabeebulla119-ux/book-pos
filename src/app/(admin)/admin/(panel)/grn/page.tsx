@@ -14,6 +14,10 @@ import {
   listGrns, listProductsForGrn, canReceiveStock, describeUnitError, formatDate,
   type GrnListItem, type GrnProductOption, type GrnResult,
 } from '@/lib/admin/units'
+import {
+  listSuppliers, listPurchaseOrders, isPoReceivable,
+  type SupplierRow, type PurchaseOrderListItem,
+} from '@/lib/admin/purchasing'
 
 type Load = { kind: 'loading' } | { kind: 'ready' } | { kind: 'error'; message: string }
 
@@ -24,25 +28,30 @@ export default function AdminGrnPage() {
   const [load, setLoad] = useState<Load>({ kind: 'loading' })
   const [grns, setGrns] = useState<GrnListItem[]>([])
   const [products, setProducts] = useState<GrnProductOption[]>([])
+  const [suppliers, setSuppliers] = useState<SupplierRow[]>([])
+  const [pos, setPos] = useState<PurchaseOrderListItem[]>([])
   const [query, setQuery] = useState('')
   const [creating, setCreating] = useState(false)
   const [open, setOpen] = useState<{ id: string; notice: string | null } | null>(null)
 
-  const fetchAll = useCallback(() => Promise.all([listGrns(), listProductsForGrn()]), [])
+  const fetchAll = useCallback(() => Promise.all([listGrns(), listProductsForGrn(), listSuppliers(), listPurchaseOrders()]), [])
+  const apply = useCallback(([g, p, s, o]: [GrnListItem[], GrnProductOption[], SupplierRow[], PurchaseOrderListItem[]]) => {
+    setGrns(g); setProducts(p); setSuppliers(s); setPos(o.filter((po) => isPoReceivable(po.status))); setLoad({ kind: 'ready' })
+  }, [])
 
   const refresh = useCallback(() => {
     fetchAll()
-      .then(([g, p]) => { setGrns(g); setProducts(p); setLoad({ kind: 'ready' }) })
+      .then(apply)
       .catch((err) => setLoad({ kind: 'error', message: describeUnitError(err, 'Could not load GRNs.') }))
-  }, [fetchAll])
+  }, [fetchAll, apply])
 
   useEffect(() => {
     let cancelled = false
     fetchAll()
-      .then(([g, p]) => { if (!cancelled) { setGrns(g); setProducts(p); setLoad({ kind: 'ready' }) } })
+      .then((r) => { if (!cancelled) apply(r) })
       .catch((err) => { if (!cancelled) setLoad({ kind: 'error', message: describeUnitError(err, 'Could not load GRNs.') }) })
     return () => { cancelled = true }
-  }, [fetchAll])
+  }, [fetchAll, apply])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -64,7 +73,7 @@ export default function AdminGrnPage() {
   return (
     <>
       <div className="flex flex-col sm:flex-row sm:items-start gap-3">
-        <AdminPageHeading className="flex-1" title="GRN — Goods received"
+        <AdminPageHeading className="flex-1" title="Good Receive Notice"
           subtitle="Record every delivery. Each item received gets its own barcode label, and stock rises automatically." />
         {canPost && (
           <Button onClick={() => setCreating(true)} disabled={load.kind !== 'ready'}>
@@ -146,7 +155,7 @@ export default function AdminGrnPage() {
         </div>
       )}
 
-      {creating && <GrnCreator products={products} onClose={() => setCreating(false)} onPosted={onPosted} />}
+      {creating && <GrnCreator products={products} suppliers={suppliers} purchaseOrders={pos} onClose={() => setCreating(false)} onPosted={onPosted} />}
       {open && <GrnDetail key={open.id} grnId={open.id} justPosted={open.notice} onClose={() => setOpen(null)} />}
     </>
   )

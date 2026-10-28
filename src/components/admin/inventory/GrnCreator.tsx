@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { LoaderCircle, Plus, Trash2, ScanBarcode } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
@@ -9,9 +9,13 @@ import { centsToRupees } from '@/lib/admin/pricing'
 import { AdminDrawer } from '@/components/admin/settings/AdminDrawer'
 import { TextField, TextAreaField, FieldLabel } from '@/components/admin/products/fields'
 import {
-  postGrn, newRequestId, describeUnitError, todayInColombo, splitCodes, isValidSerial, isValidImei,
+  newRequestId, todayInColombo, splitCodes, isValidSerial, isValidImei,
   type GrnProductOption, type GrnResult,
 } from '@/lib/admin/units'
+import {
+  receiveGoods, loadPurchaseOrder, describePurchasingError,
+  type SupplierRow, type PurchaseOrderListItem, type PurchaseOrderLineRow,
+} from '@/lib/admin/purchasing'
 import { ErrorNote, parseRupees } from './shared'
 
 const CONTROL =
@@ -38,7 +42,7 @@ interface LineCheck {
   problems: string[]
 }
 
-function checkLine(line: LineDraft, products: Map<string, GrnProductOption>): LineCheck {
+function checkLine(line: LineDraft, products: Map<string, GrnProductOption>, dueOnPo: number | null): LineCheck {
   const product = products.get(line.productId)
   const qty = /^\d+$/.test(line.quantity.trim()) ? Number(line.quantity) : null
   const costCents = parseRupees(line.cost)
@@ -48,6 +52,7 @@ function checkLine(line: LineDraft, products: Map<string, GrnProductOption>): Li
   if (!product) problems.push('Choose a product.')
   if (product && product.variants.length > 0 && !line.variantId) problems.push('Choose the variant (colour / storage).')
   if (qty === null || qty < 1 || qty > 500) problems.push('Quantity must be 1 to 500.')
+  else if (dueOnPo !== null && qty > dueOnPo) problems.push(`Only ${dueOnPo} still due on the purchase order.`)
   if (costCents === null) problems.push('Unit cost must be an amount in rupees.')
 
   if (product?.requiresSerial && qty !== null && serials.length !== qty) {
@@ -68,13 +73,33 @@ function checkLine(line: LineDraft, products: Map<string, GrnProductOption>): Li
  * raises stock through the ledger. One request id per open drawer, so pressing
  * Post again after a lost response never receives the goods twice.
  */
-export function GrnCreator({ products, onClose, onPosted }: {
+function lineFromPo(l: PurchaseOrderLineRow): LineDraft {
+  return {
+    key: newRequestId(),
+    productId: l.product_id,
+    variantId: l.variant_id ?? '',
+    quantity: String(l.quantity - l.received_quantity),
+    cost: String(l.unit_cost_cents / 100),
+    serialText: '',
+  }
+}
+
+export function GrnCreator({ products, suppliers, purchaseOrders, initialPoId, onClose, onPosted }: {
   products: GrnProductOption[]
+  suppliers: SupplierRow[]
+  /** Purchase orders that can still receive goods. */
+  purchaseOrders: PurchaseOrderListItem[]
+  /** Opened from a purchase order: preselects it and fills the lines. */
+  initialPoId?: string | null
   onClose: () => void
   onPosted: (result: GrnResult) => void
 }) {
   const [requestId] = useState(newRequestId)
-  const [supplier, setSupplier] = useState('')
+  const initialPo = purchaseOrders.find((po) => po.id === initialPoId) ?? null
+  const [supplierId, setSupplierId] = useState(initialPo?.supplier_id ?? '')
+  const [poId, setPoId] = useState(initialPo?.id ?? '')
+  const [poLines, setPoLines] = useState<PurchaseOrderLineRow[] | null>(null)
+  const [poLoading, setPoLoading] = useState(!!initialPo)
   const [invoice, setInvoice] = useState('')
   const [receivedOn, setReceivedOn] = useState(todayInColombo)
   const [note, setNote] = useState('')
@@ -85,7 +110,50 @@ export function GrnCreator({ products, onClose, onPosted }: {
   const [showProblems, setShowProblems] = useState(false)
 
   const byId = useMemo(() => new Map(products.map((p) => [p.id, p])), [products])
-  const checks = lines.map((l) => checkLine(l, byId))
+  // What is still due on the chosen PO, per product + variant.
+  const due = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const l of poLines ?? []) {
+      const k = `${l.product_id}|${l.variant_id ?? ''}`
+      m.set(k, (m.get(k) ?? 0) + l.quantity - l.received_quantity)
+    }
+    return m
+  }, [poLines])
+  const checks = lines.map((l) => checkLine(l, byId, poId ? (due.get(`${l.productId}|${l.variantId}`) ?? 0) : null))
+  const activeSuppliers = suppliers.filter((s) => s.is_active || s.id === supplierId)
+  const supplierPos = purchaseOrders.filter((po) => po.supplier_id === supplierId)
+
+  function applyPo(id: string) {
+    setPoId(id)
+    setError(null)
+    if (!id) { setPoLines(null); setLines([emptyLine()]); return }
+    setPoLoading(true)
+    loadPurchaseOrder(id)
+      .then((d) => {
+        const open = d.lines.filter((l) => l.received_quantity < l.quantity)
+        setPoLines(d.lines)
+        setLines(open.length ? open.map(lineFromPo) : [emptyLine()])
+      })
+      .catch((err) => setError(describePurchasingError(err, 'Could not load the purchase order.')))
+      .finally(() => setPoLoading(false))
+  }
+
+  // Opened from a PO: load its lines once.
+  useEffect(() => {
+    if (!initialPo) return
+    let cancelled = false
+    loadPurchaseOrder(initialPo.id)
+      .then((d) => {
+        if (cancelled) return
+        const open = d.lines.filter((l) => l.received_quantity < l.quantity)
+        setPoLines(d.lines)
+        setLines(open.length ? open.map(lineFromPo) : [emptyLine()])
+      })
+      .catch((err) => { if (!cancelled) setError(describePurchasingError(err, 'Could not load the purchase order.')) })
+      .finally(() => { if (!cancelled) setPoLoading(false) })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once for the PO the drawer opened with
+  }, [])
   const totalUnits = checks.reduce((n, c) => n + (c.qty ?? 0), 0)
   const totalCost = checks.reduce((n, c) => n + (c.qty ?? 0) * (c.costCents ?? 0), 0)
 
@@ -101,15 +169,17 @@ export function GrnCreator({ products, onClose, onPosted }: {
 
   async function submit() {
     setShowProblems(true)
-    if (supplier.trim().length < 2) { setError('Enter the supplier name.'); return }
+    if (!supplierId) { setError('Choose the supplier.'); return }
+    if (poLoading) { setError('The purchase order is still loading.'); return }
     const firstBad = checks.findIndex((c) => c.problems.length > 0)
     if (firstBad >= 0) { setError(`Line ${firstBad + 1}: ${checks[firstBad].problems[0]}`); return }
 
     setBusy(true)
     setError(null)
     try {
-      const result = await postGrn({
-        supplierName: supplier.trim(),
+      const result = await receiveGoods({
+        supplierId,
+        purchaseOrderId: poId || null,
         supplierInvoice: invoice.trim(),
         receivedOn,
         note: note.trim(),
@@ -124,7 +194,7 @@ export function GrnCreator({ products, onClose, onPosted }: {
       })
       onPosted(result)
     } catch (err) {
-      setError(describeUnitError(err, 'The GRN could not be posted.'))
+      setError(describePurchasingError(err, 'The GRN could not be posted.'))
     } finally {
       setBusy(false)
     }
@@ -147,9 +217,26 @@ export function GrnCreator({ products, onClose, onPosted }: {
         </>
       }
     >
+      {activeSuppliers.length === 0 && (
+        <ErrorNote message="No suppliers yet. Add the supplier in Purchase & Returns → Supplier Details first." />
+      )}
       <div className="grid gap-3.5 sm:grid-cols-2">
-        <TextField id="grn-supplier" label="Supplier" value={supplier} disabled={busy}
-          placeholder="e.g. Tech Distributors (Pvt) Ltd" onChange={(v) => { setSupplier(v); setError(null) }} />
+        <label htmlFor="grn-supplier" className="block">
+          <FieldLabel>Supplier</FieldLabel>
+          <select id="grn-supplier" className={CONTROL} value={supplierId} disabled={busy}
+            onChange={(e) => { setSupplierId(e.target.value); applyPo('') }}>
+            <option value="">Choose a supplier…</option>
+            {activeSuppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </label>
+        <label htmlFor="grn-po" className="block">
+          <FieldLabel hint={poLoading ? 'loading…' : 'optional'}>Purchase order</FieldLabel>
+          <select id="grn-po" className={CONTROL} value={poId} disabled={busy || !supplierId || poLoading}
+            onChange={(e) => applyPo(e.target.value)}>
+            <option value="">No purchase order</option>
+            {supplierPos.map((po) => <option key={po.id} value={po.id}>{po.po_number} · {po.order_date}</option>)}
+          </select>
+        </label>
         <TextField id="grn-invoice" label="Supplier invoice no." hint="optional" value={invoice} disabled={busy}
           onChange={(v) => { setInvoice(v); setError(null) }} />
         <label htmlFor="grn-date" className="block">

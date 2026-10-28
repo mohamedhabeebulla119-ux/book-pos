@@ -449,8 +449,10 @@ export type Database = {
           grn_number: string
           id: string
           note: string | null
+          purchase_order_id: string | null
           received_on: string
           request_id: string
+          supplier_id: string | null
           supplier_invoice: string | null
           supplier_name: string
           total_cost_cents: number
@@ -462,8 +464,10 @@ export type Database = {
           grn_number: string
           id?: string
           note?: string | null
+          purchase_order_id?: string | null
           received_on: string
           request_id: string
+          supplier_id?: string | null
           supplier_invoice?: string | null
           supplier_name: string
           total_cost_cents?: number
@@ -475,8 +479,10 @@ export type Database = {
           grn_number?: string
           id?: string
           note?: string | null
+          purchase_order_id?: string | null
           received_on?: string
           request_id?: string
+          supplier_id?: string | null
           supplier_invoice?: string | null
           supplier_name?: string
           total_cost_cents?: number
@@ -488,6 +494,20 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grns_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grns_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
@@ -609,6 +629,7 @@ export type Database = {
           status: string
           status_changed_at: string
           status_note: string | null
+          supplier_return_id: string | null
           unit_cost_cents: number
           variant_id: string | null
         }
@@ -628,6 +649,7 @@ export type Database = {
           status?: string
           status_changed_at?: string
           status_note?: string | null
+          supplier_return_id?: string | null
           unit_cost_cents?: number
           variant_id?: string | null
         }
@@ -647,6 +669,7 @@ export type Database = {
           status?: string
           status_changed_at?: string
           status_note?: string | null
+          supplier_return_id?: string | null
           unit_cost_cents?: number
           variant_id?: string | null
         }
@@ -699,6 +722,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "product_variants"
             referencedColumns: ["id", "product_id"]
+          },
+          {
+            foreignKeyName: "inventory_units_supplier_return_id_fkey"
+            columns: ["supplier_return_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_returns"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1750,6 +1780,130 @@ export type Database = {
           },
         ]
       }
+      purchase_order_lines: {
+        Row: {
+          id: string
+          line_no: number
+          product_id: string
+          product_name_snapshot: string
+          purchase_order_id: string
+          quantity: number
+          received_quantity: number
+          unit_cost_cents: number
+          variant_id: string | null
+          variant_label_snapshot: string | null
+        }
+        Insert: {
+          id?: string
+          line_no: number
+          product_id: string
+          product_name_snapshot: string
+          purchase_order_id: string
+          quantity: number
+          received_quantity?: number
+          unit_cost_cents?: number
+          variant_id?: string | null
+          variant_label_snapshot?: string | null
+        }
+        Update: {
+          id?: string
+          line_no?: number
+          product_id?: string
+          product_name_snapshot?: string
+          purchase_order_id?: string
+          quantity?: number
+          received_quantity?: number
+          unit_cost_cents?: number
+          variant_id?: string | null
+          variant_label_snapshot?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_order_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_lines_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_lines_variant_fk"
+            columns: ["variant_id", "product_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id", "product_id"]
+          },
+        ]
+      }
+      purchase_orders: {
+        Row: {
+          close_note: string | null
+          closed_at: string | null
+          created_at: string
+          created_by: string | null
+          expected_date: string | null
+          id: string
+          note: string | null
+          order_date: string
+          po_number: string
+          request_id: string
+          status: string
+          supplier_id: string
+          total_cents: number
+        }
+        Insert: {
+          close_note?: string | null
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          expected_date?: string | null
+          id?: string
+          note?: string | null
+          order_date: string
+          po_number: string
+          request_id: string
+          status?: string
+          supplier_id: string
+          total_cents?: number
+        }
+        Update: {
+          close_note?: string | null
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          expected_date?: string | null
+          id?: string
+          note?: string | null
+          order_date?: string
+          po_number?: string
+          request_id?: string
+          status?: string
+          supplier_id?: string
+          total_cents?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_orders_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       store_settings: {
         Row: {
           address: string | null
@@ -1821,6 +1975,242 @@ export type Database = {
           {
             foreignKeyName: "store_settings_updated_by_fkey"
             columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_payments: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          created_by: string | null
+          id: string
+          method: string
+          note: string | null
+          paid_on: string
+          payment_number: string
+          reference: string | null
+          request_id: string
+          supplier_id: string
+          void_note: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          method: string
+          note?: string | null
+          paid_on: string
+          payment_number: string
+          reference?: string | null
+          request_id: string
+          supplier_id: string
+          void_note?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          method?: string
+          note?: string | null
+          paid_on?: string
+          payment_number?: string
+          reference?: string | null
+          request_id?: string
+          supplier_id?: string
+          void_note?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_payments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_payments_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_return_items: {
+        Row: {
+          barcode_snapshot: string
+          grn_id: string | null
+          id: string
+          product_id: string | null
+          product_name_snapshot: string
+          serial_snapshot: string | null
+          supplier_return_id: string
+          unit_cost_cents: number
+          unit_id: string
+          variant_id: string | null
+          variant_label_snapshot: string | null
+        }
+        Insert: {
+          barcode_snapshot: string
+          grn_id?: string | null
+          id?: string
+          product_id?: string | null
+          product_name_snapshot: string
+          serial_snapshot?: string | null
+          supplier_return_id: string
+          unit_cost_cents: number
+          unit_id: string
+          variant_id?: string | null
+          variant_label_snapshot?: string | null
+        }
+        Update: {
+          barcode_snapshot?: string
+          grn_id?: string | null
+          id?: string
+          product_id?: string | null
+          product_name_snapshot?: string
+          serial_snapshot?: string | null
+          supplier_return_id?: string
+          unit_cost_cents?: number
+          unit_id?: string
+          variant_id?: string | null
+          variant_label_snapshot?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_return_items_supplier_return_id_fkey"
+            columns: ["supplier_return_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_returns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_return_items_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_returns: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          note: string | null
+          request_id: string
+          return_date: string
+          return_number: string
+          return_type: string
+          supplier_id: string
+          total_cents: number
+          total_units: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          request_id: string
+          return_date: string
+          return_number: string
+          return_type: string
+          supplier_id: string
+          total_cents?: number
+          total_units?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          request_id?: string
+          return_date?: string
+          return_number?: string
+          return_type?: string
+          supplier_id?: string
+          total_cents?: number
+          total_units?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_returns_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_returns_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      suppliers: {
+        Row: {
+          address: string | null
+          contact_person: string | null
+          created_at: string
+          created_by: string | null
+          email: string | null
+          id: string
+          is_active: boolean
+          name: string
+          note: string | null
+          opening_balance_cents: number
+          phone: string | null
+          supplier_code: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          contact_person?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          note?: string | null
+          opening_balance_cents?: number
+          phone?: string | null
+          supplier_code: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          contact_person?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          note?: string | null
+          opening_balance_cents?: number
+          phone?: string | null
+          supplier_code?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suppliers_created_by_fkey"
+            columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -2108,6 +2498,32 @@ export type Database = {
       }
     }
     Functions: {
+      admin_close_purchase_order: {
+        Args: { p_note: string; p_purchase_order_id: string }
+        Returns: Json
+      }
+      admin_create_purchase_order: {
+        Args: {
+          p_expected_date: string | null
+          p_lines: Json
+          p_note: string
+          p_order_date: string
+          p_request_id: string
+          p_supplier_id: string
+        }
+        Returns: Json
+      }
+      admin_create_supplier_return: {
+        Args: {
+          p_codes: string[]
+          p_note: string
+          p_request_id: string
+          p_return_date: string
+          p_return_type: string
+          p_supplier_id: string
+        }
+        Returns: Json
+      }
       admin_post_grn: {
         Args: {
           p_lines: Json
@@ -2116,6 +2532,30 @@ export type Database = {
           p_request_id: string
           p_supplier_invoice: string
           p_supplier_name: string
+        }
+        Returns: Json
+      }
+      admin_receive_goods: {
+        Args: {
+          p_lines: Json
+          p_note: string
+          p_purchase_order_id: string | null
+          p_received_on: string
+          p_request_id: string
+          p_supplier_id: string
+          p_supplier_invoice: string
+        }
+        Returns: Json
+      }
+      admin_record_supplier_payment: {
+        Args: {
+          p_amount_cents: number
+          p_method: string
+          p_note: string
+          p_paid_on: string
+          p_reference: string
+          p_request_id: string
+          p_supplier_id: string
         }
         Returns: Json
       }
@@ -2152,6 +2592,20 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      admin_save_supplier: {
+        Args: {
+          p_address: string
+          p_contact_person: string
+          p_email: string
+          p_id: string | null
+          p_is_active: boolean
+          p_name: string
+          p_note: string
+          p_opening_balance_cents: number
+          p_phone: string
+        }
+        Returns: Json
       }
       admin_set_customer_type: {
         Args: {
@@ -2220,6 +2674,18 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_supplier_balances: {
+        Args: never
+        Returns: {
+          balance_cents: number
+          cash_returns_cents: number
+          credit_returns_cents: number
+          opening_cents: number
+          payments_cents: number
+          purchases_cents: number
+          supplier_id: string
+        }[]
+      }
       admin_unit_stock_summary: {
         Args: never
         Returns: {
@@ -2261,6 +2727,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      admin_void_supplier_payment: {
+        Args: { p_note: string; p_payment_id: string }
+        Returns: Json
       }
       admin_write_off_units: {
         Args: { p_note: string; p_reason: string; p_unit_ids: string[] }

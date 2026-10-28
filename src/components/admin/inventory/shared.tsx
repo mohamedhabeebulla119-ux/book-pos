@@ -30,6 +30,7 @@ const STATUS_CLASS: Record<UnitStatus, string> = {
   reserved: 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30',
   sold: 'bg-muted text-muted-foreground border-border',
   written_off: 'bg-red-500/8 text-red-600 dark:text-red-400 border-red-500/25',
+  returned_to_supplier: 'bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/30',
 }
 
 export function UnitStatusBadge({ status }: { status: string }) {

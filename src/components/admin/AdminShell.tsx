@@ -3,19 +3,74 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Menu, X, LogOut, Sun, Moon, ShieldCheck } from 'lucide-react'
+import { Menu, X, LogOut, Sun, Moon, ShieldCheck, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/context/ThemeContext'
 import { useAdminAuth } from '@/context/AdminAuthContext'
 import { ROLE_LABEL } from '@/lib/admin/roles'
-import { ADMIN_NAV, isAdminNavActive } from './adminNav'
+import { ADMIN_NAV, isAdminNavActive, isNavGroup, type AdminNavGroup } from './adminNav'
+
+function NavGroup({ group, pathname, onNavigate }: {
+  group: AdminNavGroup
+  pathname: string
+  onNavigate?: () => void
+}) {
+  const hasActive = group.children.some((c) => isAdminNavActive(pathname, c.href))
+  const [open, setOpen] = useState(hasActive)
+  const expanded = open || hasActive
+  const Icon = group.icon
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={expanded}
+        className={cn(
+          'focus-ring group flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 min-h-[44px] text-left transition-colors duration-200 border border-transparent',
+          hasActive ? 'text-foreground font-semibold' : 'text-muted-foreground hover:bg-primary-soft/60 hover:text-foreground',
+        )}
+      >
+        <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-colors',
+          hasActive ? 'bg-card text-primary' : 'bg-muted text-muted-foreground group-hover:text-primary')}>
+          <Icon size={17} strokeWidth={2} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm leading-tight truncate">{group.label}</span>
+          <span className="block text-[11px] leading-tight text-muted-foreground/75 truncate lg:hidden">{group.hint}</span>
+        </span>
+        <ChevronDown size={16} className={cn('shrink-0 transition-transform', expanded && 'rotate-180')} />
+      </button>
+      {expanded && (
+        <div className="ml-[26px] mt-1 flex flex-col gap-0.5 border-l border-mint-deep/70 dark:border-border pl-3">
+          {group.children.map(({ href, label }) => {
+            const active = isAdminNavActive(pathname, href)
+            return (
+              <Link key={href} href={href} onClick={onNavigate} aria-current={active ? 'page' : undefined}
+                className={cn(
+                  'focus-ring rounded-xl px-3 py-2 min-h-[38px] flex items-center text-[13px] transition-colors',
+                  active ? 'bg-primary-soft text-primary font-semibold' : 'text-muted-foreground hover:bg-primary-soft/60 hover:text-foreground',
+                )}>
+                {label}
+              </Link>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname() ?? ''
 
   return (
     <nav className="flex flex-col gap-1" aria-label="Admin sections">
-      {ADMIN_NAV.map(({ href, label, icon: Icon, hint }) => {
+      {ADMIN_NAV.map((entry) => {
+        if (isNavGroup(entry)) {
+          return <NavGroup key={entry.group} group={entry} pathname={pathname} onNavigate={onNavigate} />
+        }
+        const { href, label, icon: Icon, hint } = entry
         const active = isAdminNavActive(pathname, href)
         return (
           <Link

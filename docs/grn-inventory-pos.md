@@ -52,3 +52,21 @@ verified by `supabase/tests/verify_grn_units_pos.sql` (12 checks, ends with
 
 `CAMERA` permission added for camera scanning at the counter. Rebuild the APK
 (`npm run build && npx cap sync android`) and bump the version.
+
+# Purchase & Returns
+
+Sidebar group **Purchase & Returns** holds five pages:
+
+| Page | What it does |
+|---|---|
+| **Supplier Details** `/admin/suppliers` | Add / edit suppliers (name, contact, phone, email, address, opening balance). View one to see its GRNs, returns, payments and the amount owed. Deactivate instead of deleting. |
+| **Good Receive Notice** `/admin/grn` | Receive goods from a chosen supplier, optionally against a purchase order (its open lines are filled in). Same barcodes and labels as before. |
+| **Purchase Orders** `/admin/purchase-orders` | Order from a supplier; receive deliveries against it (status Open → Partly received → Received); close the rest when it will not come. |
+| **Supplier Returns** `/admin/supplier-returns` | Scan shelf items to send back. Cash = supplier refunded money; Credit = deducted from what you owe. Stock falls; the units become *Returned to supplier*. |
+| **Supplier Payments** `/admin/supplier-payments` | Record money paid (cash, bank transfer, cheque, card). Mistakes are voided, not deleted. Owner/admin only. |
+
+**Amount owed to a supplier** = opening balance + GRNs received − credit returns − payments.
+
+Database: `supabase/migrations/20261028160000_suppliers_purchase_orders_returns_payments.sql`,
+verified by `supabase/tests/verify_purchase_returns.sql` (10 checks, ends with
+`ALL PURCHASE & RETURNS CHECKS PASSED`).

@@ -27,7 +27,7 @@ export type UnitRow = Tables['inventory_units']['Row']
 export type PosSaleRow = Tables['pos_sales']['Row']
 export type PosSaleItemRow = Tables['pos_sale_items']['Row']
 
-export const UNIT_STATUSES = ['in_stock', 'reserved', 'sold', 'written_off'] as const
+export const UNIT_STATUSES = ['in_stock', 'reserved', 'sold', 'written_off', 'returned_to_supplier'] as const
 export type UnitStatus = (typeof UNIT_STATUSES)[number]
 
 export const UNIT_STATUS_LABEL: Record<UnitStatus, string> = {
@@ -35,6 +35,7 @@ export const UNIT_STATUS_LABEL: Record<UnitStatus, string> = {
   reserved: 'Reserved (online order)',
   sold: 'Sold',
   written_off: 'Written off',
+  returned_to_supplier: 'Returned to supplier',
 }
 
 export const PAYMENT_METHODS = [
